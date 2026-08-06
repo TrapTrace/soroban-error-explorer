@@ -4,11 +4,13 @@ import HeroSearch from './components/HeroSearch';
 import CategoryFilters from './components/CategoryFilters';
 import ErrorCard from './components/ErrorCard';
 import ErrorModal from './components/ErrorModal';
+import Documentation from './components/Documentation';
 import Footer from './components/Footer';
 
 import entriesData from './data/entries.json';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'docs'
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -58,52 +60,63 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header totalEntries={entriesData.length} verifiedCount={verifiedCount} />
+      <Header
+        totalEntries={entriesData.length}
+        verifiedCount={verifiedCount}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
 
       <main style={{ flex: 1 }}>
-        <HeroSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+        {activeTab === 'catalog' ? (
+          <>
+            <HeroSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
-        <CategoryFilters
-          activeCategory={activeCategory}
-          setActiveCategory={setActiveCategory}
-          verifiedOnly={verifiedOnly}
-          setVerifiedOnly={setVerifiedOnly}
-          categoryCounts={categoryCounts}
-        />
+            <CategoryFilters
+              activeCategory={activeCategory}
+              setActiveCategory={setActiveCategory}
+              verifiedOnly={verifiedOnly}
+              setVerifiedOnly={setVerifiedOnly}
+              categoryCounts={categoryCounts}
+            />
 
-        {/* Catalog Grid */}
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '0 24px',
-        }}>
-          {filteredEntries.length === 0 ? (
-            <div className="glass-panel" style={{
-              textAlign: 'center',
-              padding: '60px 24px',
-              color: 'var(--color-slate)'
-            }}>
-              <h3 style={{ color: '#fff', fontSize: '18px', marginBottom: '8px' }}>
-                No matching errors found
-              </h3>
-              <p>Try adjusting your search terms or turning off the verified filter.</p>
-            </div>
-          ) : (
+            {/* Catalog Grid */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-              gap: '24px'
+              maxWidth: '1200px',
+              margin: '0 auto',
+              padding: '0 24px',
             }}>
-              {filteredEntries.map((entry) => (
-                <ErrorCard
-                  key={entry.id}
-                  entry={entry}
-                  onSelect={(item) => setSelectedEntry(item)}
-                />
-              ))}
+              {filteredEntries.length === 0 ? (
+                <div className="glass-panel" style={{
+                  textAlign: 'center',
+                  padding: '60px 24px',
+                  color: 'var(--color-slate)'
+                }}>
+                  <h3 style={{ color: '#fff', fontSize: '18px', marginBottom: '8px' }}>
+                    No matching errors found
+                  </h3>
+                  <p>Try adjusting your search terms or turning off the verified filter.</p>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+                  gap: '24px'
+                }}>
+                  {filteredEntries.map((entry) => (
+                    <ErrorCard
+                      key={entry.id}
+                      entry={entry}
+                      onSelect={(item) => setSelectedEntry(item)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <Documentation />
+        )}
       </main>
 
       <ErrorModal
