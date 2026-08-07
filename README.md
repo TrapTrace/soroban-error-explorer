@@ -1,10 +1,16 @@
-# TrapTrace Explorer (`soroban-error-explorer`)
+<div align="center">
 
-![Build Status](https://github.com/TrapTrace/soroban-error-explorer/actions/workflows/deploy.yml/badge.svg)
-![License](https://img.shields.io/badge/License-MIT-teal.svg)
-![Vite](https://img.shields.io/badge/Vite-5.0-blue.svg)
+# ⚡ TrapTrace Explorer — Web Search Interface
 
-**TrapTrace Explorer** is the web UI presentation layer for the TrapTrace Soroban error index. Hosted on GitHub Pages, it provides developers with instant fuzzy search, error category filtering, verification badges, and copyable code snippets to diagnose and resolve smart contract errors.
+**The web UI presentation layer for the TrapTrace Soroban error index, providing instant fuzzy search, category filters, and interactive code snippets.**
+
+[![Build Status](https://img.shields.io/github/actions/workflow/status/TrapTrace/soroban-error-explorer/deploy.yml?branch=main&style=flat-square&color=2FA98C&label=Deploy%20Status)](https://github.com/TrapTrace/soroban-error-explorer/actions)
+[![Vite](https://img.shields.io/badge/Vite-5.4-1B1F23?style=flat-square)](https://vitejs.dev)
+[![React](https://img.shields.io/badge/React-18-2FA98C?style=flat-square)](https://react.dev)
+[![License](https://img.shields.io/badge/License-MIT-2FA98C?style=flat-square)](./LICENSE)
+[![Stellar Wave](https://img.shields.io/badge/Drips%20Wave-8%20Target-E2984B?style=flat-square)](https://drips.network)
+
+</div>
 
 ---
 
