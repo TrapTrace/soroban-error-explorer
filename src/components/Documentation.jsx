@@ -1,8 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BookOpen, Terminal, Shield, Cpu, Database, Copy, Check, ExternalLink, AlertTriangle } from 'lucide-react';
+
+const SECTIONS = [
+  { id: 'cli-quickstart', label: 'CLI Quickstart' },
+  { id: 'error-architecture', label: 'Soroban Error Architecture' },
+  { id: 'state-archival', label: 'State Archival & TTL Expiration' },
+  { id: 'contribution-schema', label: 'Schema & Contribution Guidelines' }
+];
 
 export default function Documentation() {
   const [copiedCmd, setCopiedCmd] = useState('');
+  const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
+
+  // Scroll-spy: highlight the TOC entry for the section currently in view.
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Pick the topmost intersecting section to avoid boundary flicker.
+        const intersecting = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => ({ id: entry.target.id, top: entry.boundingClientRect.top }));
+        if (intersecting.length > 0) {
+          intersecting.sort((a, b) => a.top - b.top);
+          setActiveSection(intersecting[0].id);
+        }
+      },
+      // Trigger when a section crosses the upper quarter of the viewport.
+      { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
+    );
+    SECTIONS.forEach(({ id }) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const copyToClipboard = (text, id) => {
     navigator.clipboard.writeText(text);
@@ -32,10 +63,16 @@ export default function Documentation() {
               Table of Contents
             </p>
             <nav className="toc-list" aria-label="Documentation sections">
-              <a href="#cli-quickstart" className="toc-link toc-link--active">1. CLI Quickstart</a>
-              <a href="#error-architecture" className="toc-link">2. Soroban Error Architecture</a>
-              <a href="#state-archival" className="toc-link">3. State Archival &amp; TTL Expiration</a>
-              <a href="#contribution-schema" className="toc-link">4. Schema &amp; Contribution Guidelines</a>
+              {SECTIONS.map(({ id, label }, idx) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  className={`toc-link ${activeSection === id ? 'toc-link--active' : ''}`}
+                  aria-current={activeSection === id ? 'location' : undefined}
+                >
+                  {idx + 1}. {label}
+                </a>
+              ))}
             </nav>
           </div>
         </aside>

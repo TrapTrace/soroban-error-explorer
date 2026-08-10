@@ -5,19 +5,15 @@ export default function ErrorCard({ entry, onSelect }) {
   const isVerified = entry.verified;
 
   return (
-    <article
-      onClick={() => onSelect(entry)}
-      className={`error-card cat-${entry.category}`}
-      role="button"
-      tabIndex={0}
-      aria-label={`${entry.title} — view details and fix`}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(entry);
-        }
-      }}
-    >
+    <article className={`error-card cat-${entry.category}`}>
+      {/* Stretched overlay button — the single, real, accessible card action.
+          Keeps the <h3>/<p> content out of the button while covering the card. */}
+      <button
+        type="button"
+        className="card-hit-area"
+        onClick={() => onSelect(entry)}
+        aria-label={`${entry.title} — view details and fix`}
+      />
       <div>
         {/* Card Header Badges */}
         <div className="card-top">
