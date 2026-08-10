@@ -1,7 +1,7 @@
 /* ============================================================
    TrapTrace Explorer — Design System
-   Dark theme (default). Light theme can be added later by
-   overriding the tokens under a `[data-theme="light"]` selector.
+   Dark theme (default). The Paper/Ink light theme (brand §2, §5.3)
+   drops in via token overrides under [data-theme="light"].
    ============================================================ */
 
 :root {
@@ -68,6 +68,133 @@
   --shadow-lift: 0 18px 48px rgba(0, 0, 0, 0.55);
   --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
+
+/* ============================================================
+   Light theme — Paper/Ink (brand §2, §5.3)
+   Activated by <html data-theme="light">. Terminal + code
+   blocks intentionally stay dark in both themes — they are the
+   signature contrast anchor on Paper.
+   ============================================================ */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Paper/Ink surfaces */
+  --color-bg: #F7F5F0;            /* Paper */
+  --color-bg-deep: #EFEBE2;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F1EDE4;
+  --color-surface-hover: #E8E3D7;
+  --color-border: rgba(27, 31, 35, 0.10);
+  --color-border-strong: rgba(27, 31, 35, 0.20);
+
+  --color-text-main: #1B1F23;     /* Ink */
+  --color-text-muted: #4C5763;
+  --color-text-faint: #7C8692;
+
+  /* Darkened accents keep text contrast on Paper */
+  --color-trace-teal: #1E8A6F;
+  --color-trap-amber: #A96A2C;
+
+  --shadow-lift: 0 18px 48px rgba(27, 31, 35, 0.14);
+  --shadow-card: 0 2px 10px rgba(27, 31, 35, 0.08);
+}
+
+[data-theme="light"] body::before {
+  background-image:
+    radial-gradient(900px 480px at 18% -8%, rgba(30, 138, 111, 0.10), transparent 62%),
+    radial-gradient(820px 460px at 88% 108%, rgba(169, 106, 44, 0.09), transparent 60%),
+    linear-gradient(rgba(27, 31, 35, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27, 31, 35, 0.03) 1px, transparent 1px);
+  background-size: auto, auto, 56px 56px, 56px 56px;
+}
+
+[data-theme="light"] ::selection {
+  background: rgba(30, 138, 111, 0.22);
+  color: #1B1F23;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #C7C1B3;
+  border-color: var(--color-bg);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #B3AC9C; }
+
+/* --- Header --- */
+[data-theme="light"] .header { background: rgba(247, 245, 240, 0.85); }
+[data-theme="light"] .wordmark-name,
+[data-theme="light"] .stat strong { color: #1B1F23; }
+[data-theme="light"] .nav-tab:hover { background: rgba(27, 31, 35, 0.06); }
+[data-theme="light"] .btn-secondary { background: rgba(255, 255, 255, 0.7); }
+[data-theme="light"] .btn-secondary:hover { background: #FFFFFF; }
+
+/* --- Hero + search --- */
+[data-theme="light"] .hero-title {
+  background: linear-gradient(135deg, #1B1F23 25%, #57636F 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+[data-theme="light"] .search-bar { background: rgba(255, 255, 255, 0.92); }
+[data-theme="light"] .search-input { color: #1B1F23; }
+[data-theme="light"] .search-clear:hover { color: #1B1F23; background: rgba(27, 31, 35, 0.08); }
+[data-theme="light"] .kbd-hint { background: rgba(27, 31, 35, 0.06); }
+
+/* Terminal + code blocks stay dark (signature contrast on Paper) */
+[data-theme="light"] .terminal-title,
+[data-theme="light"] .tl-dim { color: #6E7A87; }
+[data-theme="light"] .tl-cmd { color: #E8EDF3; }
+[data-theme="light"] .tl-ok { color: #2FA98C; }
+[data-theme="light"] .tl-warn { color: #E2984B; }
+[data-theme="light"] .terminal-cursor { background: #2FA98C; }
+
+/* --- Filters --- */
+[data-theme="light"] .chip,
+[data-theme="light"] .toggle-pill { background: #FFFFFF; }
+[data-theme="light"] .chip-count { background: rgba(27, 31, 35, 0.07); }
+[data-theme="light"] .chip--active .chip-count { background: rgba(30, 138, 111, 0.16); color: #1B1F23; }
+
+/* --- Cards --- */
+[data-theme="light"] .error-card { background: rgba(255, 255, 255, 0.88); }
+[data-theme="light"] .card-title { color: #1B1F23; }
+[data-theme="light"] .card-foot { border-top-color: rgba(27, 31, 35, 0.08); }
+[data-theme="light"] .badge-category { background: rgba(27, 31, 35, 0.05); }
+
+/* --- Empty state --- */
+[data-theme="light"] .empty-state { background: rgba(255, 255, 255, 0.65); }
+[data-theme="light"] .empty-state h3 { color: #1B1F23; }
+
+/* --- Modal --- */
+[data-theme="light"] .modal-backdrop { background: rgba(27, 31, 35, 0.45); }
+[data-theme="light"] .modal-close { background: rgba(27, 31, 35, 0.07); }
+[data-theme="light"] .modal-close:hover { background: rgba(27, 31, 35, 0.12); color: #1B1F23; }
+[data-theme="light"] .modal-title,
+[data-theme="light"] .modal-section-head--code { color: #1B1F23; }
+[data-theme="light"] .modal-section-head--symptoms { color: #D64545; }
+[data-theme="light"] .solutions-panel { background: rgba(27, 31, 35, 0.04); color: #1B1F23; }
+
+/* --- Docs --- */
+[data-theme="light"] .docs-banner {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 235, 226, 0.96));
+}
+[data-theme="light"] .docs-banner-title,
+[data-theme="light"] .doc-section-title { color: #1B1F23; }
+[data-theme="light"] .toc-panel,
+[data-theme="light"] .doc-section { background: rgba(255, 255, 255, 0.88); }
+[data-theme="light"] .toc-link:hover { color: #1B1F23; background: rgba(27, 31, 35, 0.06); }
+[data-theme="light"] .toc-link--active { color: #1B1F23; }
+[data-theme="light"] .doc-card { background: rgba(27, 31, 35, 0.03); }
+[data-theme="light"] .doc-note { color: #1B1F23; }
+[data-theme="light"] .code-inline { background: rgba(27, 31, 35, 0.08); color: #0F6B57; }
+
+/* Darker accent text on light doc cards */
+[data-theme="light"] .doc-card h4[data-accent="host"] { color: #A96A2C; }
+[data-theme="light"] .doc-card h4[data-accent="cli"] { color: #1E8A6F; }
+[data-theme="light"] .doc-card h4[data-accent="rpc"] { color: #2F6FBC; }
+[data-theme="light"] .doc-card h4[data-accent="sdk"] { color: #7B4FAD; }
+
+/* --- Footer --- */
+[data-theme="light"] .footer-brand-name { color: #1B1F23; }
 
 * {
   box-sizing: border-box;
@@ -190,6 +317,30 @@ code, pre, kbd {
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--color-border-strong);
+}
+
+/* Light/dark theme toggle */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease,
+              color var(--dur-fast) ease,
+              border-color var(--dur-fast) ease,
+              transform var(--dur-fast) var(--ease-out);
+}
+
+.theme-toggle:hover {
+  color: var(--color-text-main);
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
 }
 
 /* ============================================================

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Header from './components/Header';
 import HeroSearch from './components/HeroSearch';
 import CategoryFilters from './components/CategoryFilters';
@@ -16,6 +16,26 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
+
+  // Theme: dark by default (per brand §2), persisted across visits.
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('traptrace-theme') === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem('traptrace-theme', theme);
+    } catch {
+      // Private mode / storage blocked — theme still applies for this visit.
+    }
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0C0F14' : '#F7F5F0');
+  }, [theme]);
 
   // Compute category counts
   const categoryCounts = useMemo(() => {
@@ -72,6 +92,8 @@ export default function App() {
         verifiedCount={verifiedCount}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        theme={theme}
+        setTheme={setTheme}
       />
 
       <main style={{ flex: 1 }}>
