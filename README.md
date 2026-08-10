@@ -4,6 +4,7 @@
 
 **The web UI presentation layer for the TrapTrace Soroban error index, providing instant fuzzy search, category filters, and interactive code snippets.**
 
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-1B1F23?style=flat-square&logo=vercel&logoColor=white)](https://traptrace-explorer.vercel.app)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/TrapTrace/soroban-error-explorer/deploy.yml?branch=main&style=flat-square&color=2FA98C&label=Deploy%20Status)](https://github.com/TrapTrace/soroban-error-explorer/actions)
 [![Vite](https://img.shields.io/badge/Vite-5.4-1B1F23?style=flat-square)](https://vitejs.dev)
 [![React](https://img.shields.io/badge/React-18-2FA98C?style=flat-square)](https://react.dev)
@@ -20,6 +21,16 @@
 - **Instant Search:** Search across error codes, WASM trap strings, and keywords in real time.
 - **Keyboard Shortcuts:** Press `/` anywhere to focus search. Press `Esc` to close detailed entry modals.
 - **Verification Badges:** Clearly tags entries as `✔ Verified` or `⚠ Unverified`.
+
+---
+
+## 🌐 Live Deployment
+
+The explorer is deployed and served from Vercel (auto-deploys on every push to `main`):
+
+**https://traptrace-explorer.vercel.app**
+
+> Note: the `gh-pages` branch is intentionally ignored by Vercel builds (`ignoreCommand` in `vercel.json`) — it only exists to feed the legacy GitHub Pages workflow and should never be built or deployed to production.
 
 ---
 
