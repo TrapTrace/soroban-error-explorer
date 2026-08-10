@@ -1,7 +1,7 @@
 import React from 'react';
-import { Terminal, Shield, BookOpen, Github, Search, FileText } from 'lucide-react';
+import { Terminal, Shield, BookOpen, Github, Search, FileText, Sun, Moon } from 'lucide-react';
 
-export default function Header({ totalEntries, verifiedCount, activeTab, setActiveTab }) {
+export default function Header({ totalEntries, verifiedCount, activeTab, setActiveTab, theme, setTheme }) {
   return (
     <header className="header">
       <div className="header-inner">
@@ -36,7 +36,7 @@ export default function Header({ totalEntries, verifiedCount, activeTab, setActi
           </nav>
         </div>
 
-        {/* Header Stats & Links */}
+        {/* Header Stats, Theme Toggle & Links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
           <div className="header-stats">
             <span className="stat">
@@ -48,6 +48,15 @@ export default function Header({ totalEntries, verifiedCount, activeTab, setActi
               <strong>{verifiedCount}</strong> Verified
             </span>
           </div>
+
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
 
           <a
             href="https://github.com/TrapTrace"
