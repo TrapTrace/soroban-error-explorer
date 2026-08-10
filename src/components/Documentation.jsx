@@ -13,26 +13,31 @@ export default function Documentation() {
   const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
 
   // Scroll-spy: highlight the TOC entry for the section currently in view.
+  // A scroll-position check (not a bare IntersectionObserver) so a section is
+  // ALWAYS active: at the very top and bottom of the page no section may sit in
+  // an observer's root band, which would otherwise leave the highlight stale.
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Pick the topmost intersecting section to avoid boundary flicker.
-        const intersecting = entries
-          .filter((entry) => entry.isIntersecting)
-          .map((entry) => ({ id: entry.target.id, top: entry.boundingClientRect.top }));
-        if (intersecting.length > 0) {
-          intersecting.sort((a, b) => a.top - b.top);
-          setActiveSection(intersecting[0].id);
-        }
-      },
-      // Trigger when a section crosses the upper quarter of the viewport.
-      { rootMargin: '-20% 0px -70% 0px', threshold: 0 }
-    );
-    SECTIONS.forEach(({ id }) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
+    const update = () => {
+      // Scrolled to the bottom: the last section may never reach the band line
+      // because the page cannot scroll it up that far — force it active.
+      const atBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      if (atBottom) {
+        setActiveSection(SECTIONS[SECTIONS.length - 1].id);
+        return;
+      }
+      // Active = the last section whose top has crossed the upper-quarter line.
+      const bandTop = window.innerHeight * 0.25;
+      let current = SECTIONS[0].id;
+      for (const { id } of SECTIONS) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= bandTop) current = id;
+      }
+      setActiveSection(current);
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
   }, []);
 
   const copyToClipboard = (text, id) => {
