@@ -6,6 +6,7 @@ import ErrorCard from './components/ErrorCard';
 import ErrorModal from './components/ErrorModal';
 import Documentation from './components/Documentation';
 import Footer from './components/Footer';
+import { SearchX } from 'lucide-react';
 
 import entriesData from './data/entries.json';
 
@@ -58,6 +59,12 @@ export default function App() {
     return entriesData.filter(e => e.verified).length;
   }, []);
 
+  const clearFilters = () => {
+    setSearchQuery('');
+    setActiveCategory('all');
+    setVerifiedOnly(false);
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header
@@ -81,28 +88,20 @@ export default function App() {
             />
 
             {/* Catalog Grid */}
-            <div style={{
-              maxWidth: '1200px',
-              margin: '0 auto',
-              padding: '0 24px',
-            }}>
+            <div className="container">
               {filteredEntries.length === 0 ? (
-                <div className="glass-panel" style={{
-                  textAlign: 'center',
-                  padding: '60px 24px',
-                  color: 'var(--color-slate)'
-                }}>
-                  <h3 style={{ color: '#fff', fontSize: '18px', marginBottom: '8px' }}>
-                    No matching errors found
-                  </h3>
+                <div className="empty-state">
+                  <div className="empty-icon">
+                    <SearchX size={28} color="var(--color-trace-teal)" />
+                  </div>
+                  <h3>No matching errors found</h3>
                   <p>Try adjusting your search terms or turning off the verified filter.</p>
+                  <button onClick={clearFilters} className="btn btn-primary">
+                    Clear Filters
+                  </button>
                 </div>
               ) : (
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-                  gap: '24px'
-                }}>
+                <div className="card-grid">
                   {filteredEntries.map((entry) => (
                     <ErrorCard
                       key={entry.id}
