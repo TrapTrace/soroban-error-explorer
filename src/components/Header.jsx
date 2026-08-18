@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, Shield, BookOpen, Github, Search, FileText, Sun, Moon } from 'lucide-react';
+import { Terminal, Shield, BookOpen, Github, Search, FileText, Sun, Moon, Activity } from 'lucide-react';
 
 export default function Header({ totalEntries, verifiedCount, activeTab, setActiveTab, theme, setTheme }) {
   return (
@@ -25,6 +25,13 @@ export default function Header({ totalEntries, verifiedCount, activeTab, setActi
               aria-current={activeTab === 'catalog' ? 'page' : undefined}
             >
               <Search size={14} /> Error Catalog
+            </button>
+            <button
+              onClick={() => setActiveTab('studio')}
+              className={`nav-tab ${activeTab === 'studio' ? 'nav-tab--active' : ''}`}
+              aria-current={activeTab === 'studio' ? 'page' : undefined}
+            >
+              <Activity size={14} /> Live Diagnostics Studio
             </button>
             <button
               onClick={() => setActiveTab('docs')}

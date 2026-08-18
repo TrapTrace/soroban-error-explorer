@@ -1290,4 +1290,42 @@ input[type="search"]::-webkit-search-cancel-button {
     scroll-behavior: auto !important;
   }
   .terminal-cursor { animation: none; }
+  .spin { animation: none; }
 }
+
+/* ============================================================
+   Live Studio Styles & Animations
+   ============================================================ */
+
+.spin {
+  animation: spin-anim 1s linear infinite;
+}
+
+@keyframes spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.badge--success {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(47, 169, 140, 0.15);
+  border: 1px solid rgba(47, 169, 140, 0.35);
+  border-radius: var(--radius-full);
+  color: var(--color-trace-teal);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+}
+
+.studio-card {
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--dur-med) ease;
+}
+
+.studio-card:hover {
+  border-color: rgba(47, 169, 140, 0.3);
+}
+
