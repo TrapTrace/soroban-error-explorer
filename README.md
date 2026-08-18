@@ -15,8 +15,13 @@
 
 ---
 
-## 🎨 Features & Design System
+## 🎨 Features & Operational Diagnostics Studio
 
+- **Live Diagnostics Studio:** Interactive browser-based developer suite connected directly to Stellar/Soroban Testnet:
+  - 🔍 **Tx Hash Inspector:** Fetches on-chain execution traces, decodes DiagnosticEvents, and automatically maps failure root causes to verified catalog entries with 1-click fix pathways.
+  - ⚡ **Pre-Flight Simulation Debugger:** Simulates transaction envelope XDR against live RPC, calculating CPU instruction count, memory bytes, and min resource fees.
+  - 📜 **Soroban XDR & Event Decoder:** Decodes base64 `DiagnosticEvent` and `SCVal` data structures into readable JSON and event topics.
+  - 🗄️ **Storage & State TTL Auditor:** Queries contract ledger entries, monitors archival status, and checks remaining TTL ledgers before archival.
 - **Brand Aesthetic:** Built using the official TrapTrace color scheme (Ink `#1B1F23`, Trap-amber `#E2984B`, Trace-teal `#2FA98C`).
 - **Instant Search:** Search across error codes, WASM trap strings, and keywords in real time.
 - **Keyboard Shortcuts:** Press `/` anywhere to focus search. Press `Esc` to close detailed entry modals.
