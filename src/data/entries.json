@@ -1,93 +1,24 @@
 [
   {
-    "id": "budget-exceeded",
-    "title": "Host Error - CPU or Memory Execution Budget Exceeded",
-    "category": "host-error",
-    "error_code": "HostError::BudgetExceeded",
-    "verified": true,
-    "summary": "Contract execution terminated because CPU instruction count or memory allocation exceeded specified envelope limits.",
-    "tags": ["budget", "cpu", "memory", "limits", "host-error"],
-    "soroban_version": "21.0.0",
-    "symptoms": "Transaction simulation or invocation returns HostError::BudgetExceeded. CLI displays Error: HostError(Error(Budget, Exceeded)). Contract fails during high-iteration loops or heavy math.",
-    "root_causes": "1. Unbounded loops over persistent storage vectors.\n2. Heavy WASM crypto computation instead of host primitives.\n3. Large memory allocations exceeding byte limits.",
-    "reproduction_steps": "pub fn process_all_items(env: Env, items: Vec<u32>) {\n    for item in items.iter() {\n        let _result = heavy_hash_calculation(item);\n    }\n}",
-    "solutions": "1. Chunk operations into smaller batches across multiple transactions.\n2. Use built-in host functions like env.crypto().sha256().\n3. In test harness, raise budget with env.budget().reset_unlimited().",
-    "references": "https://developers.stellar.org/docs/learn/fundamentals/fees-and-metering"
-  },
-  {
-    "id": "entry-archived-ttl-expired",
-    "title": "Host Error - Storage Entry Archived or TTL Expired",
-    "category": "host-error",
-    "error_code": "HostError::EntryArchived",
-    "verified": true,
-    "summary": "Attempted access to a persistent or instance storage entry whose Time-To-Live (TTL) has expired and been moved to archived state.",
-    "tags": ["storage", "ttl", "archive", "state-archival", "host-error"],
-    "soroban_version": "21.0.0",
-    "symptoms": "Call fails with error string Storage, ExceededStateArchival. Transaction simulation rejects access with ContractData entry archived.",
-    "root_causes": "1. Storage entry reached 0 remaining TTL ledgers without renewal.\n2. Accessing persistent storage without preceding RestoreFootprint transaction.",
-    "reproduction_steps": "pub fn read_user_data(env: Env, user: Address) -> UserData {\n    env.storage().persistent().get(&user).unwrap()\n}",
-    "solutions": "1. Proactively extend TTL using env.storage().persistent().extend_ttl(&key, threshold, extend_to).\n2. Submit a RestoreFootprint operation via Soroban CLI: soroban contract restore --id <CONTRACT_ID>.",
-    "references": "https://developers.stellar.org/docs/learn/fundamentals/state-archival"
-  },
-  {
-    "id": "unreachable-code-reached",
-    "title": "Host Error - WASM Unreachable Code Reached (Panic)",
-    "category": "host-error",
-    "error_code": "HostError::WasmUnreachable",
-    "verified": true,
-    "summary": "WASM virtual machine hit an explicit panic instruction, unhandled unwrapping of None/Err, or out-of-bounds index execution.",
-    "tags": ["wasm", "panic", "unreachable", "bounds", "host-error"],
-    "soroban_version": "21.0.0",
-    "symptoms": "Call fails with HostError(Error(WasmVm, Unexpected)). Terminal log reports VM trapped: unreachable code executed.",
-    "root_causes": "1. Calling .unwrap() or .expect() on None or Err.\n2. Indexing array out of bounds (vec[index]).\n3. Integer division by zero.",
-    "reproduction_steps": "pub fn divide(env: Env, a: u64, b: u64) -> u64 {\n    a / b // Panics when b == 0\n}",
-    "solutions": "1. Avoid .unwrap(). Return Result<T, ContractError> instead.\n2. Perform explicit zero-checks and bounds checking prior to math.",
-    "references": "https://developers.stellar.org/docs/build/smart-contracts/getting-started/errors"
-  },
-  {
-    "id": "sub-invocation-failed",
-    "title": "Host Error - Cross-Contract Sub-Invocation Failed",
-    "category": "host-error",
-    "error_code": "HostError::ContextFailed",
-    "verified": true,
-    "summary": "Cross-contract call to child contract returned an unhandled error or panic.",
-    "tags": ["cross-contract", "invocation", "call", "sub-call", "host-error"],
-    "soroban_version": "21.0.0",
-    "symptoms": "Parent contract invocation aborts with Error(Context, Failed). RPC log indicates sub-invocation stack unwound.",
-    "root_causes": "1. Child contract panicking or hitting host error.\n2. Calling non-existent function name or symbol mismatch.",
-    "reproduction_steps": "let client = TargetContractClient::new(&env, &target_address);\nclient.execute_action(&param);",
-    "solutions": "1. Verify target contract existence on-chain.\n2. Propagate or inspect child contract execution logs.",
-    "references": "https://developers.stellar.org/docs/build/smart-contracts/invoking-contracts"
-  },
-  {
-    "id": "contract-not-found",
-    "title": "Host Error - Contract Code or Instance Not Found",
-    "category": "host-error",
-    "error_code": "HostError::ContractNotFound",
-    "verified": true,
-    "summary": "Host environment failed to locate WASM executable bytecode or instance storage for given contract ID.",
-    "tags": ["contract-id", "wasm", "missing", "deploy", "host-error"],
-    "soroban_version": "21.0.0",
-    "symptoms": "Call fails with Error(Storage, MissingValue) or ContractNotFound.",
-    "root_causes": "1. Typo in target contract address.\n2. Network mismatch (Testnet contract invoked against Mainnet RPC).\n3. WASM code hash not uploaded.",
-    "reproduction_steps": "soroban contract invoke --id CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA --fn hello",
-    "solutions": "1. Re-check deployment output logs for exact address.\n2. Confirm network flag (--network testnet / mainnet) matches deployment.",
-    "references": "https://developers.stellar.org/docs/build/smart-contracts/deploying"
-  },
-  {
     "id": "account-not-found",
     "title": "CLI Error - Identity Account Not Found on Network",
     "category": "cli-error",
     "error_code": "CLI::AccountNotFound",
     "verified": true,
     "summary": "Soroban CLI configured source identity account is not funded or does not exist on the target network.",
-    "tags": ["account", "keypair", "fund", "friendbot", "cli-error"],
+    "tags": [
+      "account",
+      "keypair",
+      "fund",
+      "friendbot",
+      "cli-error"
+    ],
     "soroban_version": "21.0.0",
-    "symptoms": "CLI displays Error: Account G... not found on network.",
-    "root_causes": "1. Newly generated keypair has zero XLM balance.\n2. Using wrong keypair alias.",
-    "reproduction_steps": "soroban keys generate alice\nsoroban contract deploy --wasm contract.wasm --source alice",
-    "solutions": "1. Fund account via Friendbot: soroban keys fund alice --network testnet.\n2. Transfer native XLM to public key before deployment.",
-    "references": "https://developers.stellar.org/docs/tools/developer-tools/cli/keys"
+    "symptoms": "- CLI displays `Error: Account G... not found on network`.\n- Invocation or deployment fails during transaction signing.",
+    "root_causes": "1. **Unfunded Account:** Newly generated keys must be funded with minimum native XLM balance.\n2. **Incorrect Identity:** Using wrong keypair alias.",
+    "reproduction_steps": "soroban keys generate alice\nsoroban contract deploy --wasm target/wasm32-unknown-unknown/release/contract.wasm --source alice",
+    "solutions": "1. **Fund Account via Friendbot (Testnet):**\n```bash\nsoroban keys fund alice --network testnet\n```\n2. **Transfer Native Balance (Mainnet):** Send XLM to public key before deployment.",
+    "references": "- [Soroban CLI Identity Management](https://developers.stellar.org/docs/tools/developer-tools/cli/keys)"
   },
   {
     "id": "tx-failed-bad-seq",
@@ -96,13 +27,124 @@
     "error_code": "txBAD_SEQ",
     "verified": true,
     "summary": "Transaction submission rejected because account sequence number did not match network sequence counter.",
-    "tags": ["sequence", "nonce", "transaction", "txBAD_SEQ", "cli-error"],
+    "tags": [
+      "sequence",
+      "nonce",
+      "transaction",
+      "txBAD_SEQ",
+      "cli-error"
+    ],
     "soroban_version": "21.0.0",
-    "symptoms": "Transaction submission failed: ResultCode txBAD_SEQ.",
-    "root_causes": "1. Multiple concurrent transactions submitted using identical source account.\n2. CLI local sequence cache out of sync with RPC node state.",
-    "reproduction_steps": "Submit two transactions simultaneously from separate terminals with same --source keypair.",
-    "solutions": "1. Retry transaction to auto-refresh sequence counter.\n2. Use channel accounts for high-throughput batching.",
-    "references": "https://developers.stellar.org/docs/learn/fundamentals/transactions/operations"
+    "symptoms": "- Transaction rejected with status `txBAD_SEQ`.\n- CLI output: `Transaction submission failed: ResultCode txBAD_SEQ`.",
+    "root_causes": "1. **Concurrent Submissions:** Multiple transactions submitted simultaneously using the same source account.\n2. **Out of Sync Sequence Cache:** CLI local sequence counter out of sync with RPC node state.",
+    "reproduction_steps": "Submit two transactions rapidly from separate terminal instances using identical `--source` keypair.",
+    "solutions": "1. **Retry Transaction:** Re-run command to refresh sequence number automatically from RPC.\n2. **Use Channels:** For high-throughput automated scripts, use separate channel accounts for transaction signing.",
+    "references": "- [Stellar Horizon & RPC Transaction Flow](https://developers.stellar.org/docs/learn/fundamentals/transactions/operations)"
+  },
+  {
+    "id": "budget-exceeded",
+    "title": "Host Error - CPU or Memory Execution Budget Exceeded",
+    "category": "host-error",
+    "error_code": "HostError::BudgetExceeded",
+    "verified": true,
+    "summary": "Contract execution terminated because CPU instruction count or memory allocation exceeded specified envelope limits.",
+    "tags": [
+      "budget",
+      "cpu",
+      "memory",
+      "limits",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "symptoms": "- Transaction simulation or invocation returns `HostError::BudgetExceeded`.\n- CLI output displays `Error: HostError(Error(Budget, Exceeded))`.\n- Contract fails during high-iteration loops, complex cryptographic verification, or large serialization operations.",
+    "root_causes": "1. **Unbounded Loops:** Iterating over unbounded storage vectors or maps within a single contract call.\n2. **Heavy Computation:** Performing cryptographic hashing, sorting, or heavy math operations inside WASM without leveraging built-in host functions.\n3. **Large Memory Allocations:** Instantiating large vectors, buffers, or complex nested structures that exceed allocated byte limits.",
+    "reproduction_steps": "// Contract code containing unbounded iteration\npub fn process_all_items(env: Env, items: Vec<u32>) {\n    for item in items.iter() {\n        // Heavy computation per item causing CPU budget failure\n        let _result = heavy_hash_calculation(item);\n    }\n}",
+    "solutions": "1. **Chunking & Pagination:** Break processing into smaller batches across multiple transactions rather than processing in a single call.\n2. **Optimize Host Functions:** Use Soroban host-provided primitives (`env.crypto().sha256()`) instead of pure WASM crypto implementations.\n3. **Increase Budget (Test Harness Only):** In local unit tests, raise the budget with `env.budget().reset_unlimited()`.",
+    "references": "- [Stellar Developers: Soroban Resource Model](https://developers.stellar.org/docs/learn/fundamentals/fees-and-metering)\n- [Soroban Host Environment Budget Specification](https://github.com/stellar/rs-soroban-env)"
+  },
+  {
+    "id": "contract-not-found",
+    "title": "Host Error - Contract Code or Instance Not Found",
+    "category": "host-error",
+    "error_code": "HostError::ContractNotFound",
+    "verified": true,
+    "summary": "Host environment failed to locate WASM executable bytecode or instance storage for given contract ID.",
+    "tags": [
+      "contract-id",
+      "wasm",
+      "missing",
+      "deploy",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "symptoms": "- Call fails with `Error(Storage, MissingValue)` or `ContractNotFound`.\n- Soroban CLI outputs `Error: Contract instance C... does not exist`.",
+    "root_causes": "1. **Incorrect Contract Address:** Typo in contract address hash.\n2. **Network Mismatch:** Calling Testnet contract ID against Mainnet RPC.\n3. **Uninstalled WASM:** WASM code hash not uploaded prior to instance creation.",
+    "reproduction_steps": "soroban contract invoke --id CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA --fn hello",
+    "solutions": "1. **Verify Target Contract ID:** Re-check deployment output logs for exact address.\n2. **Confirm Network Target:** Ensure `--network testnet` / `--network mainnet` matches deployment target.",
+    "references": "- [Stellar Soroban Contract Deployment Guide](https://developers.stellar.org/docs/build/smart-contracts/deploying)"
+  },
+  {
+    "id": "entry-archived-ttl-expired",
+    "title": "Host Error - Storage Entry Archived or TTL Expired",
+    "category": "host-error",
+    "error_code": "HostError::EntryArchived",
+    "verified": true,
+    "summary": "Attempted access to a persistent or instance storage entry whose Time-To-Live (TTL) has expired and been archived.",
+    "tags": [
+      "storage",
+      "ttl",
+      "archive",
+      "state-archival",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "symptoms": "- Call fails with error string `Error(Storage, ExceededStateArchival)`.\n- Transaction simulation rejects access to persistent key with message `ContractData entry archived`.\n- Previously functioning contract suddenly fails when accessing user balance or state.",
+    "root_causes": "1. **State Archival:** State entry was not bumped prior to reaching minimum TTL threshold (CAP-0046).\n2. **Missing Restored Access:** Accessing archived state without issuing a `RestoreFootprint` transaction.",
+    "reproduction_steps": "pub fn read_user_data(env: Env, user: Address) -> UserData {\n    // Fails if TTL has reached zero\n    env.storage().persistent().get(&user).unwrap()\n}",
+    "solutions": "1. **Bump TTL in Contract Logic:** Use `env.storage().persistent().extend_ttl(&key, threshold, extend_to)` to proactively renew storage lifespan.\n2. **Issue Restore Transaction:** Submit a `RestoreFootprint` operation via Soroban CLI or SDK before invoking the contract.\n\n```bash\nsoroban contract restore --id <CONTRACT_ID> --key <STORAGE_KEY>\n```",
+    "references": "- [CAP-0046: Soroban State Archival](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0046.md)\n- [Stellar Documentation: State Archival Lifecycle](https://developers.stellar.org/docs/learn/fundamentals/state-archival)"
+  },
+  {
+    "id": "sub-invocation-failed",
+    "title": "Host Error - Cross-Contract Sub-Invocation Failed",
+    "category": "host-error",
+    "error_code": "HostError::ContextFailed",
+    "verified": true,
+    "summary": "Cross-contract call to child contract returned an unhandled error or panic.",
+    "tags": [
+      "cross-contract",
+      "invocation",
+      "call",
+      "sub-call",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "symptoms": "- Parent contract invocation aborts with `Error(Context, Failed)`.\n- RPC log indicates sub-invocation call stack unwound.",
+    "root_causes": "1. **Child Contract Trapped:** Target child contract raised a host error or panic.\n2. **Mismatch Interface / Symbol:** Calling non-existent function name or passing wrong argument types across contract boundary.",
+    "reproduction_steps": "let client = TargetContractClient::new(&env, &target_address);\n// Fails if target_address is invalid or function panics\nclient.execute_action(&param);",
+    "solutions": "1. **Verify Target Address:** Check target contract existence on-chain.\n2. **Propagate or Handle Error:** Wrap sub-invocations carefully and inspect child contract logs.",
+    "references": "- [Soroban Cross-Contract Calls Specification](https://developers.stellar.org/docs/build/smart-contracts/invoking-contracts)"
+  },
+  {
+    "id": "unreachable-code-reached",
+    "title": "Host Error - WASM Unreachable Code Reached (Panic)",
+    "category": "host-error",
+    "error_code": "HostError::WasmUnreachable",
+    "verified": true,
+    "summary": "WASM virtual machine hit an explicit panic instruction or out-of-bounds index execution.",
+    "tags": [
+      "wasm",
+      "panic",
+      "unreachable",
+      "bounds",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "symptoms": "- Call fails with `HostError(Error(WasmVm, Unexpected))`.\n- Terminal log reports `VM trapped: unreachable code executed`.\n- Contract panics abruptly during call.",
+    "root_causes": "1. **Unwrap on None/Err:** Calling `.unwrap()` or `.expect()` on an Option/Result that returned `None` or `Err`.\n2. **Out of Bounds Indexing:** Accessing vector or array elements at invalid indexes (`vec[index]`).\n3. **Integer Division by Zero:** Performing `a / b` when `b == 0`.",
+    "reproduction_steps": "pub fn divide(env: Env, a: u64, b: u64) -> u64 {\n    // Triggers unreachable code panic when b == 0\n    a / b\n}",
+    "solutions": "1. **Use Checked Operations & Match:** Avoid `.unwrap()`. Return `Result<T, ContractError>` instead.\n2. **Safe Math & Boundary Checks:** Validate inputs before indexing or performing division.\n\n```rust\npub fn safe_divide(env: Env, a: u64, b: u64) -> Result<u64, Error> {\n    if b == 0 {\n        return Err(Error::from_contract_error(1));\n    }\n    Ok(a / b)\n}\n```",
+    "references": "- [Soroban Error Handling Best Practices](https://developers.stellar.org/docs/build/smart-contracts/getting-started/errors)"
   },
   {
     "id": "simulate-tx-auth-failed",
@@ -111,13 +153,19 @@
     "error_code": "RPC::SimulateAuthFailed",
     "verified": true,
     "summary": "Simulation node failed to verify invocation authorization payload or signature footprint.",
-    "tags": ["rpc", "simulateTransaction", "auth", "signature", "rpc-error"],
+    "tags": [
+      "rpc",
+      "simulateTransaction",
+      "auth",
+      "signature",
+      "rpc-error"
+    ],
     "soroban_version": "21.0.0",
-    "symptoms": "RPC returns Simulation failed: Auth error.",
-    "root_causes": "1. Signer key does not match require_auth address.\n2. Missing sub-invocation footprint.",
-    "reproduction_steps": "Pass signature from keypair B to a function demanding address_a.require_auth().",
-    "solutions": "1. Ensure signer key matches target address payload.\n2. Use assembleTransaction in JS SDK to compute auth trees automatically.",
-    "references": "https://developers.stellar.org/docs/build/smart-contracts/authorization"
+    "symptoms": "- RPC returns error JSON `{\"code\": -32600, \"message\": \"Simulation failed: Auth error\"}`.\n- Invocation client output: `Failed to construct Soroban auth tree`.",
+    "root_causes": "1. **Invalid Signature/Key:** Signer key does not match required `require_auth` address.\n2. **Missing Footprint Scope:** Auth payload missing child sub-invocations.",
+    "reproduction_steps": "curl -s -X POST https://soroban-testnet.stellar.org \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"simulateTransaction\",\n    \"params\": {\n      \"transaction\": \"<UNSIGNED_TRANSACTION_XDR>\"\n    }\n  }'",
+    "solutions": "1. **Sign with Correct Key:** Ensure signature matches target address payload.\n2. **Re-simulate Auth Tree:** Use JS SDK `assembleTransaction` to compute full auth requirements automatically.",
+    "references": "- [Soroban Auth Framework Overview](https://developers.stellar.org/docs/build/smart-contracts/authorization)"
   },
   {
     "id": "storage-key-missing",
@@ -126,13 +174,19 @@
     "error_code": "RPC::StorageKeyNotFound",
     "verified": true,
     "summary": "RPC getLedgerEntries endpoint returned empty result for requested XDR storage key.",
-    "tags": ["rpc", "storage", "key", "getLedgerEntries", "rpc-error"],
+    "tags": [
+      "rpc",
+      "storage",
+      "key",
+      "getLedgerEntries",
+      "rpc-error"
+    ],
     "soroban_version": "21.0.0",
-    "symptoms": "getLedgerEntries response returns empty entries list.",
-    "root_causes": "1. Storage key was never initialized.\n2. Key expired and was archived.",
-    "reproduction_steps": "Query contract instance storage key for address prior to initialization.",
-    "solutions": "1. Execute contract setup/init function first.\n2. Query state archival RPC endpoint to check restoration status.",
-    "references": "https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgerEntries"
+    "symptoms": "- `getLedgerEntries` response returns `entries: []`.\n- SDK throws `NotFoundError` when fetching contract data instance.",
+    "root_causes": "1. **Uninitialized Storage:** Storage key was never written to on-chain.\n2. **Archived Key:** Key expired and was moved to archived ledger state.",
+    "reproduction_steps": "curl -s -X POST https://soroban-testnet.stellar.org \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"getLedgerEntries\",\n    \"params\": {\n      \"keys\": [\n        \"AAAAFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAEAAAAEdGVzdAAAAAA=\"\n      ]\n    }\n  }'",
+    "solutions": "1. **Initialize State:** Execute contract setup/init function first.\n2. **Check Archival Status:** Query state archival RPC endpoint to verify if restoration is required.",
+    "references": "- [Stellar RPC API Specification: getLedgerEntries](https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgerEntries)"
   },
   {
     "id": "value-conversion-failed",
@@ -141,12 +195,18 @@
     "error_code": "SDK::ScValConversionError",
     "verified": true,
     "summary": "Soroban SDK failed to deserialize raw XDR ScVal into target programming language primitive or struct.",
-    "tags": ["sdk", "scval", "xdr", "conversion", "sdk-error"],
+    "tags": [
+      "sdk",
+      "scval",
+      "xdr",
+      "conversion",
+      "sdk-error"
+    ],
     "soroban_version": "21.0.0",
-    "symptoms": "TypeError: Cannot convert ScVal to native type.",
-    "root_causes": "1. Decoding ScVal::Symbol as ScVal::I128 or ScVal::Address.\n2. SDK bindings schema drift.",
-    "reproduction_steps": "Pass string argument in JS SDK to function expecting i128.",
-    "solutions": "1. Use type-safe generated client bindings (soroban contract bindings).\n2. Use scValToNative() helper with explicit type casting.",
-    "references": "https://stellar.github.io/js-soroban-client/"
+    "symptoms": "- SDK throws `TypeError: Cannot convert ScVal to native type`.\n- Panic in Rust client: `called Result::unwrap() on an Err value: ConversionError`.",
+    "root_causes": "1. **Type Mismatch:** Attempting to decode `ScVal::Symbol` as `ScVal::I128` or `ScVal::Address`.\n2. **Schema Drift:** SDK client bindings out of sync with contract Wasm interface schema.",
+    "reproduction_steps": "Pass a string argument in JS SDK to a contract function parameter expecting `i128`.",
+    "solutions": "1. **Use Type-Safe Binding Generator:** Generate client bindings using `soroban contract bindings typescript`.\n2. **Explicit Conversion Helpers:** Use `scValToNative()` and `nativeToScVal()` helpers with proper type casting.",
+    "references": "- [Stellar Soroban JS SDK Documentation](https://stellar.github.io/js-soroban-client/)"
   }
 ]
