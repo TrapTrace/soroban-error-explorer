@@ -4,6 +4,7 @@ import HeroSearch from './components/HeroSearch';
 import CategoryFilters from './components/CategoryFilters';
 import ErrorCard from './components/ErrorCard';
 import ErrorModal from './components/ErrorModal';
+import LiveStudio from './components/LiveStudio';
 import Documentation from './components/Documentation';
 import Footer from './components/Footer';
 import { SearchX } from 'lucide-react';
@@ -11,7 +12,7 @@ import { SearchX } from 'lucide-react';
 import entriesData from './data/entries.json';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'docs'
+  const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' | 'studio' | 'docs'
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -97,7 +98,7 @@ export default function App() {
       />
 
       <main style={{ flex: 1 }}>
-        {activeTab === 'catalog' ? (
+        {activeTab === 'catalog' && (
           <>
             <HeroSearch searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
@@ -135,7 +136,16 @@ export default function App() {
               )}
             </div>
           </>
-        ) : (
+        )}
+
+        {activeTab === 'studio' && (
+          <LiveStudio 
+            catalogEntries={entriesData} 
+            onSelectEntry={(item) => setSelectedEntry(item)} 
+          />
+        )}
+
+        {activeTab === 'docs' && (
           <Documentation />
         )}
       </main>
