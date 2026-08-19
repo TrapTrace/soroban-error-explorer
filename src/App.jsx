@@ -38,6 +38,33 @@ export default function App() {
     if (meta) meta.setAttribute('content', theme === 'dark' ? '#0C0F14' : '#F7F5F0');
   }, [theme]);
 
+  // URL Query Parameters Handling on initial load
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      const entryParam = params.get('entry');
+      const qParam = params.get('q') || params.get('search');
+      const catParam = params.get('cat') || params.get('category');
+
+      if (tabParam && ['catalog', 'studio', 'docs'].includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+      if (entryParam) {
+        const found = entriesData.find(e => e.id === entryParam);
+        if (found) setSelectedEntry(found);
+      }
+      if (qParam) {
+        setSearchQuery(qParam);
+      }
+      if (catParam) {
+        setActiveCategory(catParam);
+      }
+    } catch {
+      // Ignore URL parsing errors
+    }
+  }, []);
+
   // Compute category counts
   const categoryCounts = useMemo(() => {
     const counts = { all: entriesData.length };

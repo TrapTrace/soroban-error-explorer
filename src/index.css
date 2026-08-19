@@ -379,6 +379,39 @@ code, pre, kbd {
   text-transform: lowercase;
 }
 
+.badge-severity {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.badge-severity--critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.badge-severity--warning {
+  background: rgba(226, 152, 75, 0.15);
+  color: var(--color-trap-amber);
+  border: 1px solid rgba(226, 152, 75, 0.35);
+}
+
+.badge-severity--info {
+  background: rgba(91, 157, 240, 0.15);
+  color: #5B9DF0;
+  border: 1px solid rgba(91, 157, 240, 0.35);
+}
+
+.badge--success {
+  background: rgba(47, 169, 140, 0.14);
+  color: var(--color-trace-teal);
+  border: 1px solid rgba(47, 169, 140, 0.32);
+}
+
 /* ============================================================
    Header
    ============================================================ */

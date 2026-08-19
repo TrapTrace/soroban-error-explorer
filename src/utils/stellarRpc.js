@@ -152,6 +152,20 @@ export async function auditContractStorage(contractId, network = 'testnet', cust
 }
 
 /**
+ * Query contract events for real-time live streaming
+ */
+export async function fetchContractEvents({ contractId, startLedger, network = 'testnet', limit = 20, customRpc = null }) {
+  const params = {
+    startLedger,
+    pagination: { limit }
+  };
+  if (contractId && contractId.trim()) {
+    params.filters = [{ type: 'contract', contractIds: [contractId.trim()] }];
+  }
+  return sendRpcRequest('getEvents', params, network, customRpc);
+}
+
+/**
  * Decode base64 DiagnosticEvent or SCVal into readable structure
  */
 export function decodeDiagnosticString(base64Str) {

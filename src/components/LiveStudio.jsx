@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Activity, 
   Search, 
   Play, 
+  Pause,
+  Trash2,
   Cpu, 
   Database, 
   FileCode, 
@@ -17,7 +19,12 @@ import {
   Layers,
   ShieldCheck,
   Zap,
-  Info
+  Info,
+  Radio,
+  Download,
+  Share2,
+  Bookmark,
+  History
 } from 'lucide-react';
 import { 
   NETWORKS, 
@@ -25,7 +32,9 @@ import {
   simulateTransaction, 
   auditContractStorage, 
   decodeDiagnosticString, 
-  diagnoseFailure 
+  diagnoseFailure,
+  fetchContractEvents,
+  getLatestLedger
 } from '../utils/stellarRpc';
 
 // Demo Presets for One-Click Reviewer Testing
@@ -87,7 +96,7 @@ const DEMO_PRESETS = {
 };
 
 export default function LiveStudio({ catalogEntries, onSelectEntry }) {
-  const [activeTool, setActiveTool] = useState('inspect'); // 'inspect' | 'simulate' | 'decode' | 'storage'
+  const [activeTool, setActiveTool] = useState('inspect'); // 'inspect' | 'simulate' | 'decode' | 'storage' | 'watch'
   const [network, setNetwork] = useState('testnet');
   const [copiedKey, setCopiedKey] = useState(null);
 
@@ -114,10 +123,93 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
   const [storageResult, setStorageResult] = useState(null);
   const [storageError, setStorageError] = useState(null);
 
+  // Live Watcher State
+  const [watchContractId, setWatchContractId] = useState('');
+  const [isWatching, setIsWatching] = useState(false);
+  const [watchedEvents, setWatchedEvents] = useState([]);
+  const [watchCursorLedger, setWatchCursorLedger] = useState(null);
+  const [watchIntervalMs, setWatchIntervalMs] = useState(3000);
+  const [trapAlertCount, setTrapAlertCount] = useState(0);
+  const watcherIntervalRef = useRef(null);
+  const eventLogEndRef = useRef(null);
+
+  // History & Bookmarks State
+  const [recentHistory, setRecentHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('traptrace_recent_history') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const addToHistory = (type, value, label) => {
+    try {
+      const newItem = { type, value, label: label || value.slice(0, 16) + '...', timestamp: new Date().toLocaleTimeString() };
+      const updated = [newItem, ...recentHistory.filter(h => !(h.type === type && h.value === value))].slice(0, 8);
+      setRecentHistory(updated);
+      localStorage.setItem('traptrace_recent_history', JSON.stringify(updated));
+    } catch {}
+  };
+
+  // URL Query Parameters Sync on Mount
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const toolParam = params.get('tool');
+      const txParam = params.get('tx');
+      const xdrParam = params.get('xdr') || params.get('sim');
+      const contractParam = params.get('contract');
+      const netParam = params.get('network');
+
+      if (netParam && NETWORKS[netParam]) {
+        setNetwork(netParam);
+      }
+      if (toolParam && ['inspect', 'simulate', 'decode', 'storage', 'watch'].includes(toolParam)) {
+        setActiveTool(toolParam);
+      }
+      if (txParam) {
+        setTxHash(txParam);
+        handleInspect(txParam);
+      }
+      if (xdrParam) {
+        setSimXdr(xdrParam);
+        handleSimulate(xdrParam);
+      }
+      if (contractParam) {
+        setContractId(contractParam);
+        setWatchContractId(contractParam);
+        if (toolParam === 'storage') handleStorageAudit(contractParam);
+      }
+    } catch {}
+  }, []);
+
   const copyToClipboard = (text, key) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const copyShareLink = (extraParams = {}) => {
+    const url = new URL(window.location.origin);
+    url.searchParams.set('tab', 'studio');
+    url.searchParams.set('tool', activeTool);
+    url.searchParams.set('network', network);
+    Object.entries(extraParams).forEach(([k, v]) => {
+      if (v) url.searchParams.set(k, v);
+    });
+    copyToClipboard(url.toString(), 'share-permalink');
+  };
+
+  const downloadReport = (filename, content, mimeType = 'text/markdown') => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Run Inspector
@@ -128,12 +220,21 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
     setInspectError(null);
     setInspectResult(null);
     setInspectDiagnosis(null);
+    addToHistory('inspect', targetHash, `Tx: ${targetHash.slice(0, 10)}...`);
 
     try {
       const data = await inspectTransaction(targetHash, network);
       setInspectResult(data);
       const diagnosis = diagnoseFailure(data, catalogEntries);
       setInspectDiagnosis(diagnosis);
+      
+      // Update browser URL
+      const url = new URL(window.location);
+      url.searchParams.set('tab', 'studio');
+      url.searchParams.set('tool', 'inspect');
+      url.searchParams.set('tx', targetHash);
+      url.searchParams.set('network', network);
+      window.history.replaceState({}, '', url);
     } catch (err) {
       setInspectError(err.message || 'Failed to inspect transaction');
     } finally {
@@ -148,6 +249,7 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
     setSimLoading(true);
     setSimError(null);
     setSimResult(null);
+    addToHistory('simulate', targetXdr, `XDR: ${targetXdr.slice(0, 12)}...`);
 
     try {
       const result = await simulateTransaction(targetXdr, network);
@@ -166,6 +268,7 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
     setStorageLoading(true);
     setStorageError(null);
     setStorageResult(null);
+    addToHistory('storage', targetId, `Contract: ${targetId.slice(0, 10)}...`);
 
     try {
       const result = await auditContractStorage(targetId, network);
@@ -185,11 +288,66 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
     setDecodeResult(result);
   };
 
+  // Live Watcher Polling Loop
+  useEffect(() => {
+    if (!isWatching) {
+      if (watcherIntervalRef.current) clearInterval(watcherIntervalRef.current);
+      return;
+    }
+
+    const pollEvents = async () => {
+      try {
+        let startLedger = watchCursorLedger;
+        if (!startLedger) {
+          const ledgerInfo = await getLatestLedger(network);
+          startLedger = Math.max(1, (ledgerInfo?.sequence || 0) - 10);
+          setWatchCursorLedger(startLedger);
+        }
+
+        const eventsRes = await fetchContractEvents({
+          contractId: watchContractId,
+          startLedger,
+          network,
+          limit: 15
+        });
+
+        if (eventsRes?.events && eventsRes.events.length > 0) {
+          const newEvents = eventsRes.events;
+          const maxLedger = Math.max(...newEvents.map(e => e.ledger));
+          setWatchCursorLedger(maxLedger + 1);
+
+          let newTraps = 0;
+          const formatted = newEvents.map(ev => {
+            const isError = ev.type === 'diagnostic' || JSON.stringify(ev).toLowerCase().includes('error') || JSON.stringify(ev).toLowerCase().includes('trap');
+            if (isError) newTraps++;
+            return {
+              ...ev,
+              isTrap: isError,
+              receivedAt: new Date().toLocaleTimeString()
+            };
+          });
+
+          setWatchedEvents(prev => [...prev, ...formatted].slice(-100));
+          if (newTraps > 0) setTrapAlertCount(prev => prev + newTraps);
+        }
+      } catch (err) {
+        console.error('Watcher poll error:', err);
+      }
+    };
+
+    pollEvents();
+    watcherIntervalRef.current = setInterval(pollEvents, watchIntervalMs);
+
+    return () => {
+      if (watcherIntervalRef.current) clearInterval(watcherIntervalRef.current);
+    };
+  }, [isWatching, watchContractId, watchCursorLedger, network, watchIntervalMs]);
+
   return (
     <div className="container" style={{ padding: '32px 24px' }}>
       {/* Studio Header */}
       <div style={{ marginBottom: '28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
           <div style={{ 
             background: 'rgba(47, 169, 140, 0.15)', 
             color: 'var(--color-trace-teal)', 
@@ -202,12 +360,22 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
           <h2 style={{ fontSize: '24px', margin: 0, fontWeight: 600 }}>
             Live Stellar &amp; Soroban Diagnostics Studio
           </h2>
-          <span className="badge badge--success" style={{ marginLeft: 'auto' }}>
-            <Zap size={12} /> Connected: {NETWORKS[network]?.name}
-          </span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => copyShareLink()}
+              className="btn btn-secondary"
+              style={{ fontSize: '12px', padding: '6px 12px' }}
+            >
+              {copiedKey === 'share-permalink' ? <Check size={13} color="var(--color-trace-teal)" /> : <Share2 size={13} />}
+              {copiedKey === 'share-permalink' ? 'Permalink Copied!' : 'Share Studio'}
+            </button>
+            <span className="badge badge--success">
+              <Zap size={12} /> Connected: {NETWORKS[network]?.name}
+            </span>
+          </div>
         </div>
-        <p style={{ color: 'var(--color-slate)', margin: 0, fontSize: '15px', maxWidth: '800px' }}>
-          Test operational Soroban diagnostics in real time. Inspect failed transaction hashes, simulate contract envelopes, decode diagnostic events, and audit storage TTL on Stellar testnet.
+        <p style={{ color: 'var(--color-slate)', margin: 0, fontSize: '15px', maxWidth: '850px' }}>
+          Test operational Soroban diagnostics in real time. Inspect failed transaction hashes, simulate contract envelopes, stream live contract events and traps, decode diagnostic events, and audit storage TTL on Stellar testnet.
         </p>
       </div>
 
@@ -222,7 +390,7 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
         background: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
         borderRadius: '10px',
-        marginBottom: '28px'
+        marginBottom: '24px'
       }}>
         {/* Tool Tabs */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -239,6 +407,28 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
             style={{ fontSize: '13px', padding: '8px 14px' }}
           >
             <Cpu size={14} /> Pre-Flight Simulator
+          </button>
+          <button
+            className={`btn ${activeTool === 'watch' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTool('watch')}
+            style={{ fontSize: '13px', padding: '8px 14px', position: 'relative' }}
+          >
+            <Radio size={14} color={isWatching ? 'var(--color-trace-teal)' : 'inherit'} /> Live Event Watcher
+            {trapAlertCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-5px',
+                right: '-5px',
+                background: '#EF4444',
+                color: '#FFF',
+                borderRadius: '999px',
+                fontSize: '10px',
+                padding: '2px 6px',
+                fontWeight: 700
+              }}>
+                {trapAlertCount}
+              </span>
+            )}
           </button>
           <button
             className={`btn ${activeTool === 'decode' ? 'btn-primary' : 'btn-secondary'}`}
@@ -258,26 +448,75 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
 
         {/* Network Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--color-slate)', fontWeight: 500 }}>Network:</span>
-          <select 
+          <span style={{ fontSize: '13px', color: 'var(--color-slate)', fontWeight: 500 }}>
+            Target Network:
+          </span>
+          <select
             value={network}
             onChange={(e) => setNetwork(e.target.value)}
             style={{
-              padding: '6px 12px',
+              padding: '8px 12px',
               borderRadius: '6px',
               border: '1px solid var(--color-border)',
               background: 'var(--color-bg)',
               color: 'var(--color-ink)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '13px'
+              fontSize: '13px',
+              cursor: 'pointer'
             }}
           >
-            <option value="testnet">Testnet (Public RPC)</option>
-            <option value="mainnet">Mainnet (Public RPC)</option>
-            <option value="futurenet">Futurenet (Testnet v2)</option>
+            <option value="testnet">Stellar Testnet</option>
+            <option value="futurenet">Stellar Futurenet</option>
+            <option value="mainnet">Stellar Mainnet</option>
           </select>
         </div>
       </div>
+
+      {/* Quick History Drawer / Bar */}
+      {recentHistory.length > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          overflowX: 'auto',
+          paddingBottom: '12px',
+          marginBottom: '20px'
+        }}>
+          <span style={{ fontSize: '11px', color: 'var(--color-slate)', textTransform: 'uppercase', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+            <History size={12} /> Recent History:
+          </span>
+          {recentHistory.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setActiveTool(item.type);
+                if (item.type === 'inspect') {
+                  setTxHash(item.value);
+                  handleInspect(item.value);
+                } else if (item.type === 'simulate') {
+                  setSimXdr(item.value);
+                  handleSimulate(item.value);
+                } else if (item.type === 'storage') {
+                  setContractId(item.value);
+                  handleStorageAudit(item.value);
+                }
+              }}
+              style={{
+                padding: '4px 10px',
+                fontSize: '11px',
+                borderRadius: '6px',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-muted)',
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)'
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* TOOL 1: TRANSACTION HASH INSPECTOR */}
@@ -289,18 +528,41 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
           borderRadius: '12px',
           padding: '24px'
         }}>
-          <h3 style={{ fontSize: '18px', marginTop: 0, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Search size={18} color="var(--color-trace-teal)" />
-            Live Transaction Hash Inspector
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Search size={18} color="var(--color-trace-teal)" />
+              On-Chain Transaction Hash Inspector
+            </h3>
+            {inspectResult && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    const md = `# TrapTrace Inspection Report\n\n- **Tx Hash:** \`${inspectResult.hash}\`\n- **Network:** ${inspectResult.network}\n- **Status:** ${inspectDiagnosis?.status}\n\n## Diagnosis\n${inspectDiagnosis?.matches?.map(m => `### ${m.entry.title}\n- **Error Code:** \`${m.entry.error_code}\`\n- **Confidence:** ${m.confidence}%\n\n**Solutions:**\n${m.entry.solutions}`).join('\n\n')}`;
+                    downloadReport(`traptrace-inspect-${inspectResult.hash.slice(0, 8)}.md`, md);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12px', padding: '5px 10px' }}
+                >
+                  <Download size={13} /> Export Report (.md)
+                </button>
+                <button
+                  onClick={() => copyShareLink({ tx: txHash })}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12px', padding: '5px 10px' }}
+                >
+                  <Share2 size={13} /> Share Link
+                </button>
+              </div>
+            )}
+          </div>
           <p style={{ color: 'var(--color-slate)', fontSize: '14px', marginBottom: '20px' }}>
-            Fetches on-chain execution details from Soroban RPC, extracts diagnostic events, and maps traps to verified catalog fixes.
+            Enter a 64-character transaction hash to fetch on-chain Soroban RPC trace metadata, decode DiagnosticEvents, and automatically cross-reference root causes with the verified error catalog.
           </p>
 
           {/* Quick Presets */}
           <div style={{ marginBottom: '16px' }}>
             <span style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-              Try One-Click Demo Scenarios:
+              Try Preset Failure Scenarios:
             </span>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
               {DEMO_PRESETS.tx.map((preset, idx) => (
@@ -312,6 +574,7 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
                   }}
                   className="btn btn-secondary"
                   style={{ fontSize: '12px', padding: '6px 10px', background: 'var(--color-bg)' }}
+                  title={preset.desc}
                 >
                   ⚡ {preset.label}
                 </button>
@@ -319,11 +582,11 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
             </div>
           </div>
 
-          {/* Input Form */}
+          {/* Input & Action */}
           <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="Paste Stellar transaction hash (64 hex characters)..."
+              placeholder="Paste 64-char transaction hash (hex)..."
               value={txHash}
               onChange={(e) => setTxHash(e.target.value)}
               style={{
@@ -347,25 +610,23 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
             >
               {inspectLoading ? (
                 <>
-                  <RefreshCw size={16} className="spin" /> Querying RPC...
+                  <RefreshCw size={16} className="spin" /> Inspecting...
                 </>
               ) : (
                 <>
-                  <Search size={16} /> Inspect Hash
+                  <Search size={16} /> Inspect Transaction
                 </>
               )}
             </button>
           </div>
 
-          {/* Error Banner */}
           {inspectError && (
             <div style={{
-              padding: '14px 18px',
+              padding: '16px',
               borderRadius: '8px',
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               color: '#EF4444',
-              marginBottom: '20px',
               fontSize: '14px',
               display: 'flex',
               alignItems: 'center',
@@ -376,140 +637,114 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
             </div>
           )}
 
-          {/* Inspection Results */}
           {inspectResult && (
-            <div style={{ marginTop: '24px' }}>
-              {/* Status Header */}
+            <div style={{ marginTop: '20px' }}>
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
-                padding: '14px 18px',
-                background: inspectDiagnosis?.isFailed ? 'rgba(239, 68, 68, 0.1)' : 'rgba(47, 169, 140, 0.1)',
-                border: `1px solid ${inspectDiagnosis?.isFailed ? 'rgba(239, 68, 68, 0.3)' : 'rgba(47, 169, 140, 0.3)'}`,
-                borderRadius: '8px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px',
                 marginBottom: '20px'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {inspectDiagnosis?.isFailed ? (
-                    <AlertTriangle size={20} color="#EF4444" />
-                  ) : (
-                    <CheckCircle2 size={20} color="var(--color-trace-teal)" />
-                  )}
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: '15px' }}>
-                      Status: {inspectResult.rpcResult?.status || (inspectResult.horizonResult?.successful ? 'SUCCESS' : 'FAILED')}
-                    </span>
-                    <div style={{ fontSize: '12px', color: 'var(--color-slate)', fontFamily: 'var(--font-mono)' }}>
-                      Hash: {inspectResult.hash}
-                    </div>
+                <div style={{ padding: '14px', background: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>Execution Status</div>
+                  <div style={{ fontSize: '18px', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {inspectDiagnosis?.isFailed ? (
+                      <>
+                        <XCircle size={18} color="#EF4444" />
+                        <span style={{ color: '#EF4444' }}>FAILED</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={18} color="var(--color-trace-teal)" />
+                        <span style={{ color: 'var(--color-trace-teal)' }}>SUCCESS</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <a 
-                  href={`${NETWORKS[network]?.explorerTxUrl}${inspectResult.hash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-secondary"
-                  style={{ fontSize: '12px', padding: '6px 12px' }}
-                >
-                  View on StellarExpert <ExternalLink size={12} />
-                </a>
+                <div style={{ padding: '14px', background: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>Ledger Sequence</div>
+                  <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                    #{inspectResult.rpcResult?.latestLedger || inspectResult.horizonResult?.ledger || 'Pending'}
+                  </div>
+                </div>
+
+                <div style={{ padding: '14px', background: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>External Explorer</div>
+                  <div style={{ marginTop: '4px' }}>
+                    <a
+                      href={`${NETWORKS[network]?.explorerTxUrl}${inspectResult.hash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'var(--color-trace-teal)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '14px', fontWeight: 500 }}
+                    >
+                      stellar.expert <ExternalLink size={13} />
+                    </a>
+                  </div>
+                </div>
               </div>
 
-              {/* Automatic Root Cause Diagnostic Matching */}
+              {/* Diagnosis Matches */}
               {inspectDiagnosis?.matches?.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ fontSize: '15px', color: 'var(--color-trap-amber)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ShieldCheck size={16} />
-                    TrapTrace Automated Root-Cause Diagnosis
-                  </h4>
-                  <div style={{ display: 'grid', gap: '12px' }}>
-                    {inspectDiagnosis.matches.map((match, idx) => (
-                      <div 
+                <div style={{
+                  padding: '20px',
+                  background: 'var(--color-bg)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--color-border)',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    <ShieldCheck size={20} color="var(--color-trace-teal)" />
+                    <h4 style={{ margin: 0, fontSize: '16px' }}>
+                      Automated Catalog Root-Cause Matching ({inspectDiagnosis.matches.length} matches found)
+                    </h4>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {inspectDiagnosis.matches.map((m, idx) => (
+                      <div
                         key={idx}
                         style={{
-                          padding: '16px',
-                          borderRadius: '8px',
+                          padding: '14px',
+                          background: 'var(--color-surface)',
                           border: '1px solid var(--color-border)',
-                          background: 'var(--color-bg)',
+                          borderRadius: '8px',
                           display: 'flex',
-                          alignItems: 'center',
                           justifyContent: 'space-between',
-                          gap: '16px',
-                          flexWrap: 'wrap'
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '12px'
                         }}
                       >
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span className="badge badge--verified" style={{ fontSize: '11px' }}>
-                              {match.confidence}% Match
-                            </span>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '14px' }}>
-                              {match.entry.title}
-                            </span>
+                            <span style={{ fontWeight: 600, fontSize: '15px' }}>{m.entry.title}</span>
+                            <span className="badge badge-category">{m.entry.category}</span>
+                            <span className="badge badge--success">{m.confidence}% Confidence</span>
                           </div>
-                          <p style={{ color: 'var(--color-slate)', fontSize: '13px', margin: '4px 0 8px 0' }}>
-                            {match.entry.summary}
-                          </p>
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {match.reasons.map((r, i) => (
-                              <span key={i} style={{ fontSize: '11px', color: 'var(--color-slate)', background: 'var(--color-surface)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                                {r}
-                              </span>
-                            ))}
+                          <div style={{ fontSize: '13px', color: 'var(--color-slate)' }}>
+                            {m.reasons.join(' · ')}
                           </div>
                         </div>
-
                         <button
-                          onClick={() => onSelectEntry(match.entry)}
-                          className="btn btn-primary"
-                          style={{ fontSize: '13px', padding: '8px 14px', whiteSpace: 'nowrap' }}
+                          onClick={() => onSelectEntry(m.entry)}
+                          className="btn btn-secondary"
+                          style={{ fontSize: '13px', padding: '6px 12px' }}
                         >
-                          View Fix &amp; Repro <ArrowRight size={14} />
+                          View Verified Fix <ArrowRight size={13} />
                         </button>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-
-              {/* Raw RPC Payload Explorer */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--color-slate)', fontWeight: 600 }}>
-                    Live Soroban RPC Response:
-                  </span>
-                  <button
-                    onClick={() => copyToClipboard(JSON.stringify(inspectResult, null, 2), 'rpc-json')}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '11px', padding: '4px 8px' }}
-                  >
-                    {copiedKey === 'rpc-json' ? <Check size={12} color="var(--color-trace-teal)" /> : <Copy size={12} />} Copy JSON
-                  </button>
-                </div>
-                <pre style={{
-                  background: 'var(--color-bg)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '8px',
-                  padding: '14px',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '12px',
-                  maxHeight: '240px',
-                  overflowY: 'auto'
-                }}>
-                  {JSON.stringify(inspectResult.rpcResult || inspectResult.horizonResult || {}, null, 2)}
-                </pre>
-              </div>
             </div>
           )}
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TOOL 2: PRE-FLIGHT SIMULATOR */}
+      {/* TOOL 2: PRE-FLIGHT SIMULATION DEBUGGER */}
       {/* ========================================================================= */}
       {activeTool === 'simulate' && (
         <div className="studio-card" style={{
@@ -518,18 +753,34 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
           borderRadius: '12px',
           padding: '24px'
         }}>
-          <h3 style={{ fontSize: '18px', marginTop: 0, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Cpu size={18} color="var(--color-trace-teal)" />
-            Pre-Flight Simulation Debugger
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Cpu size={18} color="var(--color-trace-teal)" />
+              Pre-Flight Transaction Simulation Debugger
+            </h3>
+            {simResult && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    const jsonStr = JSON.stringify(simResult, null, 2);
+                    downloadReport(`traptrace-simulation.json`, jsonStr, 'application/json');
+                  }}
+                  className="btn btn-secondary"
+                  style={{ fontSize: '12px', padding: '5px 10px' }}
+                >
+                  <Download size={13} /> Export JSON
+                </button>
+              </div>
+            )}
+          </div>
           <p style={{ color: 'var(--color-slate)', fontSize: '14px', marginBottom: '20px' }}>
-            Runs <code style={{ fontFamily: 'var(--font-mono)' }}>simulateTransaction</code> against live Soroban RPC, verifying CPU instructions, memory allocation, authorization trees, and footprint requirements.
+            Test transaction envelope XDR against Soroban JSON-RPC simulation before submitting to the network. Measures CPU instruction footprint, memory allocation, and minimum resource fee.
           </p>
 
           {/* Quick Presets */}
           <div style={{ marginBottom: '16px' }}>
             <span style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-              Try Preset Envelope XDR:
+              Try Preset Envelope XDRs:
             </span>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
               {DEMO_PRESETS.simulation.map((preset, idx) => (
@@ -541,6 +792,7 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
                   }}
                   className="btn btn-secondary"
                   style={{ fontSize: '12px', padding: '6px 10px', background: 'var(--color-bg)' }}
+                  title={preset.desc}
                 >
                   ⚡ {preset.label}
                 </button>
@@ -548,8 +800,7 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
             </div>
           </div>
 
-          {/* XDR Input Form */}
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <textarea
               rows={4}
               placeholder="Paste Base64 Transaction Envelope XDR..."
@@ -564,39 +815,35 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
                 color: 'var(--color-ink)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '13px',
-                resize: 'vertical',
                 boxSizing: 'border-box'
               }}
             />
-            <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => handleSimulate()}
-                disabled={simLoading || !simXdr.trim()}
-                className="btn btn-primary"
-                style={{ padding: '10px 20px', fontSize: '14px' }}
-              >
-                {simLoading ? (
-                  <>
-                    <RefreshCw size={16} className="spin" /> Simulating...
-                  </>
-                ) : (
-                  <>
-                    <Play size={16} /> Run Pre-Flight Simulation
-                  </>
-                )}
-              </button>
-            </div>
           </div>
 
-          {/* Simulation Error */}
+          <button
+            onClick={() => handleSimulate()}
+            disabled={simLoading || !simXdr.trim()}
+            className="btn btn-primary"
+            style={{ padding: '12px 20px', fontSize: '14px', marginBottom: '24px' }}
+          >
+            {simLoading ? (
+              <>
+                <RefreshCw size={16} className="spin" /> Simulating...
+              </>
+            ) : (
+              <>
+                <Play size={16} /> Run Pre-Flight Simulation
+              </>
+            )}
+          </button>
+
           {simError && (
             <div style={{
-              padding: '14px 18px',
+              padding: '16px',
               borderRadius: '8px',
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               color: '#EF4444',
-              marginBottom: '20px',
               fontSize: '14px',
               display: 'flex',
               alignItems: 'center',
@@ -607,9 +854,8 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
             </div>
           )}
 
-          {/* Simulation Results */}
           {simResult && (
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: '20px' }}>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -617,54 +863,185 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
                 marginBottom: '20px'
               }}>
                 <div style={{ padding: '14px', background: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>CPU Instructions</div>
-                  <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '4px', color: 'var(--color-trace-teal)' }}>
-                    {simResult.cost?.cpuInsns ? Number(simResult.cost.cpuInsns).toLocaleString() : 'N/A'}
-                  </div>
-                </div>
-
-                <div style={{ padding: '14px', background: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>Memory Allocation</div>
-                  <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '4px', color: 'var(--color-trace-teal)' }}>
-                    {simResult.cost?.memBytes ? `${(Number(simResult.cost.memBytes) / 1024).toFixed(1)} KB` : 'N/A'}
+                  <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>Simulation Status</div>
+                  <div style={{ fontSize: '18px', fontWeight: 600, marginTop: '4px', color: simResult.error ? '#EF4444' : 'var(--color-trace-teal)' }}>
+                    {simResult.error ? 'Simulation Error' : 'Simulation Success'}
                   </div>
                 </div>
 
                 <div style={{ padding: '14px', background: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
                   <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>Min Resource Fee</div>
-                  <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '4px', color: 'var(--color-trap-amber)' }}>
-                    {simResult.minResourceFee ? `${simResult.minResourceFee} stroops` : '0'}
+                  <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                    {simResult.minResourceFee ? `${simResult.minResourceFee} stroops` : 'N/A'}
                   </div>
                 </div>
 
                 <div style={{ padding: '14px', background: 'var(--color-bg)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
                   <div style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>Latest Ledger</div>
                   <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-                    {simResult.latestLedger ? simResult.latestLedger.toLocaleString() : 'N/A'}
+                    #{simResult.latestLedger || 'N/A'}
                   </div>
                 </div>
               </div>
-
-              {/* Simulation Result Details */}
-              <pre style={{
-                background: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '8px',
-                padding: '14px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '12px',
-                maxHeight: '260px',
-                overflowY: 'auto'
-              }}>
-                {JSON.stringify(simResult, null, 2)}
-              </pre>
             </div>
           )}
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TOOL 3: XDR & DIAGNOSTIC EVENT DECODER */}
+      {/* TOOL 3: LIVE EVENT & TRAP WATCHER */}
+      {/* ========================================================================= */}
+      {activeTool === 'watch' && (
+        <div className="studio-card" style={{
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          borderRadius: '12px',
+          padding: '24px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: '18px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Radio size={18} color="var(--color-trace-teal)" />
+              Real-Time Contract Event &amp; Host Trap Stream Watcher
+            </h3>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {watchedEvents.length > 0 && (
+                <>
+                  <button
+                    onClick={() => {
+                      const jsonStr = JSON.stringify(watchedEvents, null, 2);
+                      downloadReport(`traptrace-events-${new Date().toISOString().slice(0, 10)}.json`, jsonStr, 'application/json');
+                    }}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '12px', padding: '5px 10px' }}
+                  >
+                    <Download size={13} /> Export Stream JSON
+                  </button>
+                  <button
+                    onClick={() => {
+                      setWatchedEvents([]);
+                      setTrapAlertCount(0);
+                    }}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '12px', padding: '5px 10px' }}
+                  >
+                    <Trash2 size={13} /> Clear
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          <p style={{ color: 'var(--color-slate)', fontSize: '14px', marginBottom: '20px' }}>
+            Streams on-chain contract events and DiagnosticEvents via live JSON-RPC polling. Automatically flags contract traps, panics, and authorization errors in real time.
+          </p>
+
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Contract ID (Leave empty to stream all contract events on network)..."
+              value={watchContractId}
+              onChange={(e) => setWatchContractId(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: '280px',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg)',
+                color: 'var(--color-ink)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '13px'
+              }}
+            />
+            <button
+              onClick={() => setIsWatching(!isWatching)}
+              className={`btn ${isWatching ? 'btn-secondary' : 'btn-primary'}`}
+              style={{ padding: '12px 20px', fontSize: '14px' }}
+            >
+              {isWatching ? (
+                <>
+                  <Pause size={16} /> Pause Stream
+                </>
+              ) : (
+                <>
+                  <Play size={16} /> Start Live Stream
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Event Stream Terminal Window */}
+          <div style={{
+            background: '#090B0F',
+            borderRadius: '10px',
+            border: '1px solid var(--color-border)',
+            padding: '16px',
+            minHeight: '260px',
+            maxHeight: '450px',
+            overflowY: 'auto',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '13px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px', marginBottom: '12px', fontSize: '11px', color: 'var(--color-slate)', textTransform: 'uppercase' }}>
+              <span>Live Stream Status: {isWatching ? <span style={{ color: 'var(--color-trace-teal)' }}>● Polling {NETWORKS[network]?.name} (every {watchIntervalMs/1000}s)</span> : '❚❚ Paused'}</span>
+              <span>Events Buffered: {watchedEvents.length}</span>
+            </div>
+
+            {watchedEvents.length === 0 ? (
+              <div style={{ color: 'var(--color-slate)', textAlign: 'center', padding: '40px 0' }}>
+                {isWatching ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <RefreshCw size={20} className="spin" color="var(--color-trace-teal)" />
+                    <span>Listening for on-chain events...</span>
+                  </div>
+                ) : (
+                  <span>Click "Start Live Stream" to monitor contract transactions and traps.</span>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {watchedEvents.map((ev, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '10px 14px',
+                      background: ev.isTrap ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                      border: `1px solid ${ev.isTrap ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.06)'}`,
+                      borderRadius: '6px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: ev.isTrap ? '#EF4444' : 'var(--color-trace-teal)', fontWeight: 600 }}>
+                          {ev.isTrap ? '⚠️ [HOST TRAP / ERROR]' : '✓ [EVENT]'}
+                        </span>
+                        <span style={{ color: 'var(--color-slate)', fontSize: '11px' }}>
+                          Ledger #{ev.ledger}
+                        </span>
+                      </div>
+                      <span style={{ color: 'var(--color-slate)', fontSize: '11px' }}>{ev.receivedAt}</span>
+                    </div>
+
+                    <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
+                      <span style={{ color: 'var(--color-slate)' }}>Contract: </span>
+                      {ev.contractId || '<None / System>'}
+                    </div>
+
+                    {ev.topic && (
+                      <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                        <span style={{ color: 'var(--color-slate)' }}>Topics: </span>
+                        {JSON.stringify(ev.topic)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TOOL 4: XDR & DIAGNOSTIC EVENT DECODER */}
       {/* ========================================================================= */}
       {activeTool === 'decode' && (
         <div className="studio-card" style={{
@@ -675,16 +1052,16 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
         }}>
           <h3 style={{ fontSize: '18px', marginTop: 0, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FileCode size={18} color="var(--color-trace-teal)" />
-            Soroban XDR &amp; DiagnosticEvent Parser
+            Soroban DiagnosticEvent &amp; SCVal Decoder
           </h3>
           <p style={{ color: 'var(--color-slate)', fontSize: '14px', marginBottom: '20px' }}>
-            Inspects binary base64 Soroban DiagnosticEvents, ScVal parameters, and host function call stacks.
+            Decodes Base64 encoded Soroban DiagnosticEvents, ScVal objects, and call stack trees to extract readable error symbols and contract trap details.
           </p>
 
           {/* Quick Presets */}
           <div style={{ marginBottom: '16px' }}>
             <span style={{ fontSize: '12px', color: 'var(--color-slate)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-              Try Preset Base64 Events:
+              Try Preset Event Payloads:
             </span>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
               {DEMO_PRESETS.decode.map((preset, idx) => (
@@ -786,7 +1163,7 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
       )}
 
       {/* ========================================================================= */}
-      {/* TOOL 4: STORAGE & STATE TTL AUDITOR */}
+      {/* TOOL 5: STORAGE & STATE TTL AUDITOR */}
       {/* ========================================================================= */}
       {activeTool === 'storage' && (
         <div className="studio-card" style={{

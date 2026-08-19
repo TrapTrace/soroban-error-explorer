@@ -18,6 +18,11 @@ export default function ErrorCard({ entry, onSelect }) {
         {/* Card Header Badges */}
         <div className="card-top">
           <span className="badge badge-category">{entry.category}</span>
+          {entry.severity && (
+            <span className={`badge badge-severity badge-severity--${entry.severity}`}>
+              {entry.severity}
+            </span>
+          )}
           <span className={`badge ${isVerified ? 'badge-verified' : 'badge-unverified'}`}>
             {isVerified ? (
               <>
