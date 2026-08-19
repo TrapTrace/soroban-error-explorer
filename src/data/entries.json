@@ -14,6 +14,8 @@
       "cli-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- CLI displays `Error: Account G... not found on network`.\n- Invocation or deployment fails during transaction signing.",
     "root_causes": "1. **Unfunded Account:** Newly generated keys must be funded with minimum native XLM balance.\n2. **Incorrect Identity:** Using wrong keypair alias.",
     "reproduction_steps": "soroban keys generate alice\nsoroban contract deploy --wasm target/wasm32-unknown-unknown/release/contract.wasm --source alice",
@@ -35,6 +37,8 @@
       "cli-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- Transaction rejected with status `txBAD_SEQ`.\n- CLI output: `Transaction submission failed: ResultCode txBAD_SEQ`.",
     "root_causes": "1. **Concurrent Submissions:** Multiple transactions submitted simultaneously using the same source account.\n2. **Out of Sync Sequence Cache:** CLI local sequence counter out of sync with RPC node state.",
     "reproduction_steps": "Submit two transactions rapidly from separate terminal instances using identical `--source` keypair.",
@@ -56,6 +60,10 @@
       "host-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "critical",
+    "related_entries": [
+      "sub-invocation-failed"
+    ],
     "symptoms": "- Transaction simulation or invocation returns `HostError::BudgetExceeded`.\n- CLI output displays `Error: HostError(Error(Budget, Exceeded))`.\n- Contract fails during high-iteration loops, complex cryptographic verification, or large serialization operations.",
     "root_causes": "1. **Unbounded Loops:** Iterating over unbounded storage vectors or maps within a single contract call.\n2. **Heavy Computation:** Performing cryptographic hashing, sorting, or heavy math operations inside WASM without leveraging built-in host functions.\n3. **Large Memory Allocations:** Instantiating large vectors, buffers, or complex nested structures that exceed allocated byte limits.",
     "reproduction_steps": "// Contract code containing unbounded iteration\npub fn process_all_items(env: Env, items: Vec<u32>) {\n    for item in items.iter() {\n        // Heavy computation per item causing CPU budget failure\n        let _result = heavy_hash_calculation(item);\n    }\n}",
@@ -77,6 +85,11 @@
       "host-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "critical",
+    "related_entries": [
+      "account-not-found",
+      "entry-archived-ttl-expired"
+    ],
     "symptoms": "- Call fails with `Error(Storage, MissingValue)` or `ContractNotFound`.\n- Soroban CLI outputs `Error: Contract instance C... does not exist`.",
     "root_causes": "1. **Incorrect Contract Address:** Typo in contract address hash.\n2. **Network Mismatch:** Calling Testnet contract ID against Mainnet RPC.\n3. **Uninstalled WASM:** WASM code hash not uploaded prior to instance creation.",
     "reproduction_steps": "soroban contract invoke --id CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA --fn hello",
@@ -98,6 +111,8 @@
       "host-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- Call fails with error string `Error(Storage, ExceededStateArchival)`.\n- Transaction simulation rejects access to persistent key with message `ContractData entry archived`.\n- Previously functioning contract suddenly fails when accessing user balance or state.",
     "root_causes": "1. **State Archival:** State entry was not bumped prior to reaching minimum TTL threshold (CAP-0046).\n2. **Missing Restored Access:** Accessing archived state without issuing a `RestoreFootprint` transaction.",
     "reproduction_steps": "pub fn read_user_data(env: Env, user: Address) -> UserData {\n    // Fails if TTL has reached zero\n    env.storage().persistent().get(&user).unwrap()\n}",
@@ -119,6 +134,8 @@
       "host-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- Parent contract invocation aborts with `Error(Context, Failed)`.\n- RPC log indicates sub-invocation call stack unwound.",
     "root_causes": "1. **Child Contract Trapped:** Target child contract raised a host error or panic.\n2. **Mismatch Interface / Symbol:** Calling non-existent function name or passing wrong argument types across contract boundary.",
     "reproduction_steps": "let client = TargetContractClient::new(&env, &target_address);\n// Fails if target_address is invalid or function panics\nclient.execute_action(&param);",
@@ -140,6 +157,8 @@
       "host-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- Call fails with `HostError(Error(WasmVm, Unexpected))`.\n- Terminal log reports `VM trapped: unreachable code executed`.\n- Contract panics abruptly during call.",
     "root_causes": "1. **Unwrap on None/Err:** Calling `.unwrap()` or `.expect()` on an Option/Result that returned `None` or `Err`.\n2. **Out of Bounds Indexing:** Accessing vector or array elements at invalid indexes (`vec[index]`).\n3. **Integer Division by Zero:** Performing `a / b` when `b == 0`.",
     "reproduction_steps": "pub fn divide(env: Env, a: u64, b: u64) -> u64 {\n    // Triggers unreachable code panic when b == 0\n    a / b\n}",
@@ -161,6 +180,8 @@
       "rpc-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- RPC returns error JSON `{\"code\": -32600, \"message\": \"Simulation failed: Auth error\"}`.\n- Invocation client output: `Failed to construct Soroban auth tree`.",
     "root_causes": "1. **Invalid Signature/Key:** Signer key does not match required `require_auth` address.\n2. **Missing Footprint Scope:** Auth payload missing child sub-invocations.",
     "reproduction_steps": "curl -s -X POST https://soroban-testnet.stellar.org \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"simulateTransaction\",\n    \"params\": {\n      \"transaction\": \"<UNSIGNED_TRANSACTION_XDR>\"\n    }\n  }'",
@@ -182,6 +203,8 @@
       "rpc-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- `getLedgerEntries` response returns `entries: []`.\n- SDK throws `NotFoundError` when fetching contract data instance.",
     "root_causes": "1. **Uninitialized Storage:** Storage key was never written to on-chain.\n2. **Archived Key:** Key expired and was moved to archived ledger state.",
     "reproduction_steps": "curl -s -X POST https://soroban-testnet.stellar.org \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"getLedgerEntries\",\n    \"params\": {\n      \"keys\": [\n        \"AAAAFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAEAAAAEdGVzdAAAAAA=\"\n      ]\n    }\n  }'",
@@ -203,6 +226,8 @@
       "sdk-error"
     ],
     "soroban_version": "21.0.0",
+    "severity": "info",
+    "related_entries": [],
     "symptoms": "- SDK throws `TypeError: Cannot convert ScVal to native type`.\n- Panic in Rust client: `called Result::unwrap() on an Err value: ConversionError`.",
     "root_causes": "1. **Type Mismatch:** Attempting to decode `ScVal::Symbol` as `ScVal::I128` or `ScVal::Address`.\n2. **Schema Drift:** SDK client bindings out of sync with contract Wasm interface schema.",
     "reproduction_steps": "Pass a string argument in JS SDK to a contract function parameter expecting `i128`.",
