@@ -46,6 +46,33 @@
     "references": "- [Stellar Horizon & RPC Transaction Flow](https://developers.stellar.org/docs/learn/fundamentals/transactions/operations)"
   },
   {
+    "id": "arith-error",
+    "title": "Host Error - Integer Arithmetic Overflow, Underflow, or Division by Zero",
+    "category": "host-error",
+    "error_code": "HostError::ArithDomain",
+    "verified": true,
+    "summary": "Contract execution panicked due to an arithmetic domain error such as integer overflow, underflow, or division by zero in WASM.",
+    "tags": [
+      "arithmetic",
+      "overflow",
+      "underflow",
+      "divide-by-zero",
+      "math",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "severity": "critical",
+    "related_entries": [
+      "unreachable-code-reached",
+      "host-invalid-action"
+    ],
+    "symptoms": "- Contract simulation or execution aborts immediately with `HostError(Error(Context, InvalidAction))` or `HostError::ArithDomain`.\n- Diagnostic events indicate an unreachable panic (`attempt to add with overflow` or `attempt to divide by zero`).\n- Token transfers, reward calculation math, or liquidity pool calculations fail during extreme value inputs.",
+    "root_causes": "1. **Unchecked Integer Math:** Performing raw Rust operators (`+`, `-`, `*`, `/`) in release or debug mode where arithmetic overflows trigger a WASM trap.\n2. **Division by Zero:** Executing `/` or `%` on a variable denominator that evaluated to `0` without guard checks.\n3. **Lossy Casting:** Casting large integer types (`i128` to `u64` or `i64`) where values exceed destination type boundaries.",
+    "reproduction_steps": "use soroban_sdk::{contract, contractimpl, Env};\n\n#[contract]\npub struct ArithErrorContract;\n\n#[contractimpl]\nimpl ArithErrorContract {\n    pub fn calculate_overflow(_env: Env, base: u128) -> u128 {\n        // Raw arithmetic addition triggers overflow panic on u128::MAX\n        base + 1\n    }\n\n    pub fn calculate_divide_zero(_env: Env, val: u64, divisor: u64) -> u64 {\n        // Triggers division by zero if divisor is 0\n        val / divisor\n    }\n}",
+    "solutions": "1. **Use Checked Arithmetic:** Replace raw operators with checked arithmetic methods (`checked_add`, `checked_sub`, `checked_mul`, `checked_div`) and handle `None` gracefully.\n2. **Use Saturating Arithmetic:** Use `saturating_add` or `saturating_sub` where clamping values to type limits is acceptable.\n3. **Explicit Zero Checks:** Validate divisors before executing division or modulo operations (`if divisor == 0 { return Err(Error::ZeroDivisor); }`).",
+    "references": "- [Stellar Developers: Soroban Safe Math Practices](https://developers.stellar.org/docs/learn/smart-contract-internals/errors)\n- [Rust Standard Library Checked Arithmetic](https://doc.rust-lang.org/std/primitive.u128.html#method.checked_add)"
+  },
+  {
     "id": "auth-invalid-signature",
     "title": "Host Error - Contract Authorization Invalid Signature",
     "category": "host-error",
@@ -199,6 +226,33 @@
     "reproduction_steps": "use soroban_sdk::{contract, contractimpl, vec, BytesN, Env, Symbol};\n\n#[contract]\npub struct InvalidActionContract;\n\n#[contractimpl]\nimpl InvalidActionContract {\n    pub fn trigger_invalid_event(env: Env) {\n        // Violates topic length limit (max 4 topics allowed in Soroban)\n        let topics = (\n            Symbol::new(&env, \"topic1\"),\n            Symbol::new(&env, \"topic2\"),\n            Symbol::new(&env, \"topic3\"),\n            Symbol::new(&env, \"topic4\"),\n            Symbol::new(&env, \"topic5\"), // Invalid 5th topic\n        );\n        env.events().publish(topics, 100u32);\n    }\n}",
     "solutions": "1. **Verify Cryptographic Key and Signature Lengths:** Ensure public keys are exact 32-byte slices (`BytesN<32>`) and signatures are exact 64-byte slices (`BytesN<64>`) before calling verification host methods.\n2. **Limit Event Topics:** Ensure all event topic tuples contain between 1 and 4 elements maximum.\n3. **Validate Raw Val Handles:** Use SDK wrapper types (`Address`, `Bytes`, `Vec`, `Map`) rather than raw `Val` / `RawVal` representations to prevent uninitialized handle errors.\n4. **Inspect Diagnostic Events:** Run `traptrace inspect <tx_hash>` or check `diagnosticEvents` in the RPC response to pinpoint the exact host function call that triggered `InvalidAction`.",
     "references": "- [Soroban Host Environment Error Codes (rs-soroban-env)](https://github.com/stellar/rs-soroban-env)\n- [Stellar Developers: Smart Contract Events & Topics](https://developers.stellar.org/docs/learn/smart-contract-internals/events)"
+  },
+  {
+    "id": "require-auth-missing",
+    "title": "Host Error - Missing Required Invocation Authorization",
+    "category": "host-error",
+    "error_code": "HostError::AuthMissing",
+    "verified": true,
+    "summary": "Contract execution halted because an operation required explicit authorization from an Address that was not provided in the invocation auth tree.",
+    "tags": [
+      "auth",
+      "require-auth",
+      "authorization",
+      "security",
+      "permissions",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "severity": "critical",
+    "related_entries": [
+      "auth-invalid-signature",
+      "simulate-tx-auth-failed"
+    ],
+    "symptoms": "- Transaction simulation or invocation terminates with `HostError(Error(Auth, InvalidAction))` or `HostError::AuthMissing`.\n- RPC simulation returns `Auth error: HostError::AuthMissing (require_auth failed for address)`.\n- Contract aborts during privileged administrative functions, token transfers, or state ownership modifications.",
+    "root_causes": "1. **Unsigned Client Invocation:** Client submitted a transaction envelope that called a contract method enforcing `address.require_auth()` without appending the corresponding `SorobanAuthorizationEntry` to the transaction footprint.\n2. **Sub-Invocation Authorization Gaps:** Contract invoked a child contract requiring caller authorization without wrapping the call in `require_auth_for_args(...)`.\n3. **Mismatched Authorization Address:** Passing an address parameter `admin` to the method that does not match the actual transaction submitter or signed credentials.",
+    "reproduction_steps": "use soroban_sdk::{contract, contractimpl, Address, Env};\n\n#[contract]\npub struct AdminOnlyContract;\n\n#[contractimpl]\nimpl AdminOnlyContract {\n    pub fn update_admin(env: Env, new_admin: Address) {\n        let current_admin: Address = env.storage().instance().get(&1u32).unwrap();\n        // Fails if current_admin has not signed the invocation\n        current_admin.require_auth();\n        env.storage().instance().set(&1u32, &new_admin);\n    }\n}",
+    "solutions": "1. **Include Auth Entries:** In client applications using JS/Python/Rust SDKs, simulate the transaction first to generate the required `auth` tree and sign each required entry.\n2. **Authorizing Contract Calls:** If calling between contracts, use `Address::require_auth_for_args(&address, args)` to explicitly authorize arguments passed to nested contracts.\n3. **Inspect Auth Trees with CLI:** Run `traptrace simulate <xdr>` to inspect required authorizers and verify whether all needed signatures are included.",
+    "references": "- [Stellar Developers: Soroban Authorization Architecture](https://developers.stellar.org/docs/learn/smart-contract-internals/authorization)\n- [Soroban Rust SDK Address::require_auth](https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.Address.html#method.require_auth)"
   },
   {
     "id": "storage-ledger-entry-not-found",
