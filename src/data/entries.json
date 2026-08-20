@@ -252,6 +252,33 @@
     "references": "- [Soroban Cross-Contract Calls Specification](https://developers.stellar.org/docs/build/smart-contracts/invoking-contracts)"
   },
   {
+    "id": "sub-invocation-user-error",
+    "title": "Host Error - User-Defined Contract Error in Cross-Contract Sub-Invocation",
+    "category": "host-error",
+    "error_code": "HostError::ContractUserError",
+    "verified": true,
+    "summary": "Cross-contract execution reverted because the callee contract returned an explicit user-defined contract error enum discriminant.",
+    "tags": [
+      "cross-contract",
+      "sub-invocation",
+      "custom-error",
+      "contracterror",
+      "bubbling",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "severity": "warning",
+    "related_entries": [
+      "sub-invocation-failed",
+      "unreachable-code-reached"
+    ],
+    "symptoms": "- Transaction simulation or invocation terminates with `HostError(Error(Contract, 1))` (or other integer error code).\n- Top-level contract aborts even though its own logic has not panicked.\n- Diagnostic events list shows callee contract emitting error discriminant before aborting execution context.",
+    "root_causes": "1. **Callee Business Logic Assertion:** The target child contract hit a business logic validation failure (e.g. `InsufficientBalance`, `UnauthorizedCaller`) and returned a custom `#[contracterror]` variant.\n2. **Unhandled `Result<T, E>` in Caller:** The invoking contract called a child contract method that returns `Result` but immediately used `.unwrap()` or the `?` operator without catching or mapping domain errors.\n3. **Invalid Invariant in Child Contract:** Callee state was corrupted or uninitialized, leading the callee to return an error variant.",
+    "reproduction_steps": "use soroban_sdk::{contract, contracterror, contractimpl, Address, Env};\n\n#[contracterror]\n#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]\n#[repr(u32)]\npub enum VaultError {\n    VaultLocked = 1,\n    InsufficientFunds = 2,\n}\n\n#[contract]\npub struct VaultContract;\n\n#[contractimpl]\nimpl VaultContract {\n    pub fn withdraw(_env: Env, _amount: i128) -> Result<(), VaultError> {\n        // Explicitly return a user-defined contract error\n        Err(VaultError::VaultLocked)\n    }\n}",
+    "solutions": "1. **Catch and Handle Errors in Caller:** Avoid unconditional `.unwrap()`; use pattern matching or `match callee_client.try_withdraw(&amount)` to handle child error variants gracefully.\n2. **Inspect Error Code Enum:** Look up the callee contract's `#[contracterror]` definition to map the integer discriminant (e.g. `1` $\\rightarrow$ `VaultLocked`).\n3. **Trace Invocations with CLI:** Run `traptrace inspect <tx_hash>` or `traptrace simulate <xdr>` to view the full cross-contract call tree and pinpoint which child contract emitted the error code.",
+    "references": "- [Stellar Developers: Soroban Custom Errors and ContractError](https://developers.stellar.org/docs/learn/smart-contract-internals/errors)\n- [Soroban Rust SDK ContractError Attribute](https://docs.rs/soroban-sdk/latest/soroban_sdk/attr.contracterror.html)"
+  },
+  {
     "id": "unreachable-code-reached",
     "title": "Host Error - WASM Unreachable Code Reached (Panic)",
     "category": "host-error",
