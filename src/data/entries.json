@@ -46,6 +46,34 @@
     "references": "- [Stellar Horizon & RPC Transaction Flow](https://developers.stellar.org/docs/learn/fundamentals/transactions/operations)"
   },
   {
+    "id": "auth-invalid-signature",
+    "title": "Host Error - Contract Authorization Invalid Signature",
+    "category": "host-error",
+    "error_code": "HostError::AuthInvalidSignature",
+    "verified": true,
+    "summary": "Transaction execution or simulation aborted because an authorization entry signature failed cryptographic verification against the required signer address or public key.",
+    "tags": [
+      "auth",
+      "signature",
+      "ed25519",
+      "secp256k1",
+      "verification",
+      "require-auth",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "severity": "critical",
+    "related_entries": [
+      "simulate-tx-auth-failed",
+      "host-invalid-action"
+    ],
+    "symptoms": "- Transaction simulation or on-chain submission fails with `HostError(Error(Auth, InvalidAction))` or `HostError::AuthInvalidSignature`.\n- RPC response returns `Simulation failed: Auth error: Signature verification failed`.\n- Invocation involving custom accounts, multi-sig contracts, or delegated `require_auth` fails during signature checking.",
+    "root_causes": "1. **Incorrect Signer Keypair:** Signing the invocation authorization payload with a secret key that does not correspond to the public key or `Address` declared in `require_auth`.\n2. **Signature Hash Mismatch:** Signing a different authorization tree hash (e.g. payload created for a different network passphrase or nonce) than what the Soroban host validates.\n3. **Invalid Signature Encoding:** Passing a malformed, non-canonical 64-byte Ed25519 or 65-byte Secp256k1 signature slice to custom account verification methods (`__check_auth`).\n4. **Expired Authorization Nonce:** Reusing an old authorization payload whose sequence nonce has already been consumed on-chain.",
+    "reproduction_steps": "use soroban_sdk::{contract, contractimpl, Address, Env};\n\n#[contract]\npub struct AuthTestContract;\n\n#[contractimpl]\nimpl AuthTestContract {\n    pub fn transfer_protected(env: Env, from: Address, to: Address, amount: i128) {\n        // Enforces explicit cryptographic authorization\n        from.require_auth();\n        // State mutation logic...\n    }\n}",
+    "solutions": "1. **Verify Signer Matches Address:** Ensure the transaction signer or simulated auth entry keypair matches the `Address` parameter passed to `require_auth()`.\n2. **Simulate Auth Footprints First:** Run `traptrace simulate <xdr>` to generate the required Soroban authorization tree before signing.\n3. **Verify Network Passphrase:** Ensure off-chain signers are hashing signatures with the correct network passphrase (`Test SDF Network ; September 2015` on Testnet, `Public Global Stellar Network ; September 2015` on Mainnet).\n4. **Handle Custom Account Auth:** In smart contract accounts implementing `__check_auth`, ensure signature verification returns `Ok(())` only when valid and bubbles explicit errors.",
+    "references": "- [Stellar Developers: Smart Contract Authorization](https://developers.stellar.org/docs/learn/smart-contract-internals/authorization)\n- [Soroban Rust SDK Address and Auth Documentation](https://docs.rs/soroban-sdk/latest/soroban_sdk/struct.Address.html)"
+  },
+  {
     "id": "budget-exceeded",
     "title": "Host Error - CPU or Memory Execution Budget Exceeded",
     "category": "host-error",
