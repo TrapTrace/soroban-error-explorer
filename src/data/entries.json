@@ -23,6 +23,34 @@
     "references": "- [Soroban CLI Identity Management](https://developers.stellar.org/docs/tools/developer-tools/cli/keys)"
   },
   {
+    "id": "invalid-chain-id",
+    "title": "CLI Error - Network Passphrase or Chain ID Mismatch",
+    "category": "cli-error",
+    "error_code": "CLI::InvalidChainId",
+    "verified": true,
+    "summary": "Transaction simulation or submission rejected because the transaction network passphrase hash does not match the target Stellar node network ID.",
+    "tags": [
+      "network",
+      "chain-id",
+      "passphrase",
+      "testnet",
+      "mainnet",
+      "futurenet",
+      "cli-error"
+    ],
+    "soroban_version": "21.0.0",
+    "severity": "warning",
+    "related_entries": [
+      "simulate-tx-auth-failed",
+      "auth-invalid-signature"
+    ],
+    "symptoms": "- Transaction simulation or broadcast fails with error `Invalid network passphrase` or `Transaction signature verification failed for target network`.\n- Stellar RPC returns simulation error: `HostError: Error(Context, InvalidAction)` with transaction signature mismatch.\n- CLI displays error: `error: the transaction was signed for a different network passphrase than the connected node`.",
+    "root_causes": "1. **Passphrase Mismatch:** The transaction envelope was constructed and signed with one network passphrase (e.g. `Public Global Stellar Network ; September 2015`) but submitted to a different node RPC (e.g. `https://soroban-testnet.stellar.org` expecting `Test SDF Network ; September 2015`).\n2. **CLI Network Configuration Drift:** The `--network` flag was omitted or pointed to a customized local standalone network while `--rpc-url` was directed at Public Testnet.\n3. **Multi-Environment Signature Pipelines:** Pre-signed envelopes generated in staging or offline hardware keys were broadcast to testnet without updating the target network hash.",
+    "reproduction_steps": "soroban contract invoke \\\n  --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \\\n  --network-passphrase \"Public Global Stellar Network ; September 2015\" \\\n  --rpc-url https://soroban-testnet.stellar.org \\\n  --fn hello",
+    "solutions": "1. **Explicitly Specify Network in CLI:** Use the pre-configured `--network testnet` or `--network mainnet` flag rather than hardcoding raw passphrase strings.\n2. **Verify Environment Configurations:** Ensure `STELLAR_NETWORK_PASSPHRASE` matches the RPC endpoint defined in `STELLAR_RPC_URL`.\n3. **Use TrapTrace Network Manager:** Use `traptrace inspect <tx_hash> --network testnet` or `traptrace rpc` to verify the node's official passphrase before signing.",
+    "references": "- [Stellar Network Passphrases Reference](https://developers.stellar.org/docs/learn/fundamentals/networks)\n- [Soroban CLI Network Management](https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli)"
+  },
+  {
     "id": "tx-failed-bad-seq",
     "title": "CLI Error - Transaction Failed Bad Sequence Number",
     "category": "cli-error",
@@ -44,6 +72,34 @@
     "reproduction_steps": "Submit two transactions rapidly from separate terminal instances using identical `--source` keypair.",
     "solutions": "1. **Retry Transaction:** Re-run command to refresh sequence number automatically from RPC.\n2. **Use Channels:** For high-throughput automated scripts, use separate channel accounts for transaction signing.",
     "references": "- [Stellar Horizon & RPC Transaction Flow](https://developers.stellar.org/docs/learn/fundamentals/transactions/operations)"
+  },
+  {
+    "id": "wasm-verification-failed",
+    "title": "CLI Error - Contract WASM Module Bytecode Verification Failed",
+    "category": "cli-error",
+    "error_code": "CLI::WasmVerificationFailed",
+    "verified": true,
+    "summary": "Contract upload or installation failed because the compiled WASM binary violates Soroban VM constraints, contains unsupported floating-point operations, or imports unexported host interfaces.",
+    "tags": [
+      "wasm",
+      "bytecode",
+      "verification",
+      "deployment",
+      "install",
+      "upload",
+      "cli-error"
+    ],
+    "soroban_version": "21.0.0",
+    "severity": "critical",
+    "related_entries": [
+      "unreachable-code-reached",
+      "wasm-memory-exhausted"
+    ],
+    "symptoms": "- Contract installation via `stellar contract install` or `soroban contract deploy` fails during the simulation or upload phase.\n- CLI output displays: `error: contract wasm verification failed: invalid import or unsupported opcode`.\n- Simulation RPC returns: `HostError(Error(WasmVm, InvalidAction))` or `contract bytecode failed validation against VM protocol limits`.",
+    "root_causes": "1. **Floating Point Operations (f32/f64):** Standard Rust mathematical libraries compiled without `#![no_std]` or using floating-point operations that non-deterministically violate Soroban VM determinism rules.\n2. **Missing WASM Target Optimization:** The WASM file was compiled for generic `wasm32-unknown-unknown` without running `stellar contract build` or `soroban-opt`, leaving unsupported external imports or standard library system call bindings.\n3. **WASM Section Limit Exceeded:** The compiled bytecode imports host functions from non-existent modules or exceeds custom section table limits defined in the current Stellar Protocol version.",
+    "reproduction_steps": "# Create a dummy malformed WASM header\necho -n -e '\\x00\\x61\\x73\\x6d\\x01\\x00\\x00\\x00\\x00\\x05\\x01\\x02\\x03\\x04\\x05' > invalid_contract.wasm\n\n# Attempt to install on testnet\nsoroban contract install \\\n  --wasm invalid_contract.wasm \\\n  --source default \\\n  --network testnet",
+    "solutions": "1. **Build with the Official Toolchain:** Always compile contracts with `stellar contract build` (or `cargo build --target wasm32-unknown-unknown --release` followed by `stellar contract optimize`).\n2. **Ensure `#![no_std]` Compliance:** Avoid standard library dependencies that invoke OS syscalls (`std::fs`, `std::net`, `std::time`, or threading).\n3. **Run WASM Inspection & Validation:** Use `traptrace decode` or `wasm-tools validate contract.wasm` prior to deployment to verify opcode determinism and section tables.",
+    "references": "- [Stellar Developers: Building and Optimizing Soroban Contracts](https://developers.stellar.org/docs/build/smart-contracts/getting-started/build)\n- [Soroban VM Bytecode Specification and Opcode Constraints](https://developers.stellar.org/docs/learn/smart-contract-internals/execution-model)"
   },
   {
     "id": "arith-error",
@@ -177,6 +233,34 @@
     "reproduction_steps": "soroban contract invoke --id CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA --fn hello",
     "solutions": "1. **Verify Target Contract ID:** Re-check deployment output logs for exact address.\n2. **Confirm Network Target:** Ensure `--network testnet` / `--network mainnet` matches deployment target.",
     "references": "- [Stellar Soroban Contract Deployment Guide](https://developers.stellar.org/docs/build/smart-contracts/deploying)"
+  },
+  {
+    "id": "crypto-verification-failed",
+    "title": "Host Error - Cryptographic Signature or Curve Verification Failed",
+    "category": "host-error",
+    "error_code": "HostError::CryptoError",
+    "verified": true,
+    "summary": "Smart contract execution panicked during host cryptographic primitives verification (such as env.crypto().ed25519_verify) due to an invalid signature, corrupted public key, or payload mismatch.",
+    "tags": [
+      "crypto",
+      "ed25519",
+      "secp256k1",
+      "signature",
+      "verification",
+      "curve",
+      "host-error"
+    ],
+    "soroban_version": "21.0.0",
+    "severity": "critical",
+    "related_entries": [
+      "auth-invalid-signature",
+      "host-invalid-action"
+    ],
+    "symptoms": "- Contract execution or simulation aborts with `HostError(Error(Crypto, InvalidInput))` or `HostError::CryptoError`.\n- Host diagnostic event logs report: `crypto function verification failure` or `ed25519 verification failed`.\n- Zero-knowledge proof, multi-sig verification, or off-chain message attestation methods fail with immediate execution revert.",
+    "root_causes": "1. **Tampered Signature Payload:** The message byte slice passed into `env.crypto().ed25519_verify(&public_key, &message, &signature)` or `secp256k1_verify` does not match the exact bytes hashed during signing.\n2. **Invalid Public Key or Signature Length:** Passing a public key or signature byte buffer whose length deviates from curve standards (e.g. 32 bytes for Ed25519 public keys, 64 bytes for Ed25519 signatures, 65 bytes for uncompressed Secp256k1).\n3. **Mismatched Signature Encoding:** Providing DER-encoded or hex-encoded signatures when the Soroban cryptographic host function expects raw binary bytes (`BytesN<64>`).",
+    "reproduction_steps": "use soroban_sdk::{contract, contractimpl, crypto::Crypto, Bytes, BytesN, Env};\n\n#[contract]\npub struct CryptoVerifierContract;\n\n#[contractimpl]\nimpl CryptoVerifierContract {\n    pub fn verify_signature(\n        env: Env,\n        public_key: BytesN<32>,\n        message: Bytes,\n        invalid_signature: BytesN<64>,\n    ) {\n        // Attempting to verify with an intentional dummy signature\n        env.crypto().ed25519_verify(&public_key, &message, &invalid_signature);\n    }\n}",
+    "solutions": "1. **Verify Exact Message Hashing:** Ensure message payloads are canonicalized before hashing (e.g. SHA-256 / Keccak-256) and match the exact signing domain parameters.\n2. **Validate Fixed-Size Byte Arrays:** Enforce `BytesN<32>` and `BytesN<64>` type constraints in function arguments so malformed buffers fail before reaching the host cryptographic primitives.\n3. **Use Soroban Custom Account Contract Interfaces:** For account authentication, prefer implementing the standard `CustomAccountInterface` with `__check_auth` rather than manual ad-hoc crypto verification inside contract business logic.",
+    "references": "- [Soroban SDK Crypto Module Docs](https://docs.rs/soroban-sdk/latest/soroban_sdk/crypto/struct.Crypto.html)\n- [Stellar Smart Contract Auth & Cryptography Standards](https://developers.stellar.org/docs/learn/smart-contract-internals/authorization)"
   },
   {
     "id": "entry-archived-ttl-expired",
