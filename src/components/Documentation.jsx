@@ -1,32 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Terminal, Shield, Cpu, Database, Copy, Check, ExternalLink, AlertTriangle } from 'lucide-react';
+import { BookOpen, Terminal, Shield, Cpu, Database, Copy, Check, ExternalLink, AlertTriangle, Layers, Zap, Code2 } from 'lucide-react';
 
 const SECTIONS = [
-  { id: 'cli-quickstart', label: 'CLI Quickstart' },
+  { id: 'cli-quickstart', label: 'CLI Suite (v0.3.0)' },
+  { id: 'sdk-integration', label: '@traptrace/sdk (npm)' },
   { id: 'error-architecture', label: 'Soroban Error Architecture' },
   { id: 'state-archival', label: 'State Archival & TTL Expiration' },
-  { id: 'contribution-schema', label: 'Schema & Contribution Guidelines' }
+  { id: 'contribution-schema', label: 'Schema & Testnet Verification' }
 ];
 
 export default function Documentation() {
   const [copiedCmd, setCopiedCmd] = useState('');
   const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
 
-  // Scroll-spy: highlight the TOC entry for the section currently in view.
-  // A scroll-position check (not a bare IntersectionObserver) so a section is
-  // ALWAYS active: at the very top and bottom of the page no section may sit in
-  // an observer's root band, which would otherwise leave the highlight stale.
   useEffect(() => {
     const update = () => {
-      // Scrolled to the bottom: the last section may never reach the band line
-      // because the page cannot scroll it up that far — force it active.
-      const atBottom =
-        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
       if (atBottom) {
         setActiveSection(SECTIONS[SECTIONS.length - 1].id);
         return;
       }
-      // Active = the last section whose top has crossed the upper-quarter line.
       const bandTop = window.innerHeight * 0.25;
       let current = SECTIONS[0].id;
       for (const { id } of SECTIONS) {
@@ -52,11 +45,11 @@ export default function Documentation() {
       <div className="docs-banner">
         <div className="docs-banner-title">
           <BookOpen size={28} color="var(--color-trace-teal)" />
-          TrapTrace Documentation &amp; Developer Guide
+          TrapTrace Developer Documentation &amp; Reference Guide
         </div>
         <p>
-          Comprehensive guide to Soroban smart contract error diagnostics, state archival lifecycles,
-          WASM execution envelopes, CLI tool usage, and contribution guidelines.
+          Complete guide to the TrapTrace operational diagnostics platform: Python CLI (v0.3.0), JavaScript/TypeScript SDK (@traptrace/sdk),
+          state archival lifecycles (CAP-0046), contract authorization trees, and 21 testnet-verified error patterns.
         </p>
       </div>
 
@@ -87,11 +80,10 @@ export default function Documentation() {
           {/* Section 1 */}
           <section id="cli-quickstart" className="doc-section">
             <h2 className="doc-section-title">
-              <Terminal color="var(--color-trace-teal)" size={20} /> 1. CLI Quickstart (soroban-explain)
+              <Terminal color="var(--color-trace-teal)" size={20} /> 1. Operational CLI Suite (traptrace v0.3.0)
             </h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', marginBottom: '16px' }}>
-              Install the lightweight Python command-line utility to query error diagnostics directly
-              from your local terminal session during smart contract development.
+              Install the zero-dependency Python CLI tool to inspect on-chain transactions, simulate contracts, validate authorization trees, and generate auto-fix remediation code directly from your terminal.
             </p>
 
             <div className="copy-row">
@@ -102,45 +94,89 @@ export default function Documentation() {
             </div>
 
             <h4 style={{ color: '#fff', fontSize: '14px', marginBottom: '8px', fontWeight: 600 }}>
-              Command Line Usage Examples:
+              Operational Commands Overview:
             </h4>
             <pre className="code-block">
-              <code>{`# Explain an error string or host trap code
-soroban-explain "HostError::BudgetExceeded"
+              <code>{`# Inspect failed on-chain transaction by hash
+traptrace inspect <TX_HASH> --network testnet
 
-# Display detailed symptoms and verified solution steps
-soroban-explain "ttl" --detailed
+# Multi-transaction batch dataset diagnostics
+traptrace batch-inspect failed_transactions.json --export-md report.md
 
-# Filter by error category
-soroban-explain --category host-error
+# Pre-flight simulation with ANSI TUI resource meters
+traptrace simulate <TRANSACTION_ENVELOPE_XDR>
 
-# Output raw JSON for IDE extension integration
-soroban-explain "account-not-found" --json`}</code>
+# Validate contract authorization tree and require_auth signatures
+traptrace auth-check <INVOCATION_XDR>
+
+# Generate ready-to-paste Rust remediation code
+traptrace fix arith-error --export-rs fix.rs
+
+# Compare resource costs between two transactions
+traptrace diff <TX_HASH_1> <TX_HASH_2>
+
+# Inspect contract WASM ABI and exported specifications
+traptrace abi <CONTRACT_ID> --network testnet`}</code>
             </pre>
           </section>
 
           {/* Section 2 */}
-          <section id="error-architecture" className="doc-section">
+          <section id="sdk-integration" className="doc-section">
             <h2 className="doc-section-title">
-              <Cpu color="var(--color-trap-amber)" size={20} /> 2. Soroban Error Architecture
+              <Code2 color="var(--color-trace-teal)" size={20} /> 2. JavaScript / TypeScript SDK (@traptrace/sdk)
             </h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', marginBottom: '16px' }}>
-              Errors in Soroban occur across four distinct architectural layers. Understanding which
-              layer emitted the error accelerates resolution:
+              Integrate real-time Soroban diagnostic error decoding, authorization tree checking, and auto-fix suggestions directly into your browser dApps and Node.js backend services.
+            </p>
+
+            <div className="copy-row">
+              <code>npm install @traptrace/sdk</code>
+              <button onClick={() => copyToClipboard('npm install @traptrace/sdk', 'npm')} className="btn btn-secondary" style={{ padding: '5px 11px', fontSize: '12px' }}>
+                {copiedCmd === 'npm' ? <Check size={14} color="var(--color-trace-teal)" /> : <Copy size={14} />}
+              </button>
+            </div>
+
+            <pre className="code-block">
+              <code>{`import { diagnoseSorobanError, TrapTraceClient, validateAuthTree } from '@traptrace/sdk';
+
+// 1. Decode cryptic host trap into root cause and auto-fix snippet
+const diag = diagnoseSorobanError("Error: HostError::ArithDomain overflow");
+console.log("Root Cause:", diag.matchedEntry.title);
+console.log("Remediation Snippet:\\n", diag.fix.remediated);
+
+// 2. Pre-flight simulate transaction on Stellar Testnet
+const client = new TrapTraceClient('testnet');
+const simResult = await client.simulateTransaction(txXdr);
+
+// 3. Check authorization trees before signing
+const auth = validateAuthTree(txXdr);
+if (!auth.isValid) {
+  console.error("Auth Failure:", auth.issues);
+}`}</code>
+            </pre>
+          </section>
+
+          {/* Section 3 */}
+          <section id="error-architecture" className="doc-section">
+            <h2 className="doc-section-title">
+              <Cpu color="var(--color-trap-amber)" size={20} /> 3. Soroban Error Architecture
+            </h2>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', marginBottom: '16px' }}>
+              Errors in Soroban occur across four distinct architectural layers. Understanding which layer emitted the error accelerates resolution:
             </p>
 
             <div className="doc-grid-2">
               <div className="doc-card">
-                <h4 data-accent="host">Host Errors</h4>
-                <p>Emitted by the Soroban Environment VM when execution budget limits are exceeded, panics occur, or invalid contract IDs are called.</p>
+                <h4 data-accent="host">Host Errors (VM Layer)</h4>
+                <p>Emitted by the Soroban Environment VM when execution budget limits are exceeded, panics occur, integer overflows happen, or invalid contract IDs are called.</p>
               </div>
               <div className="doc-card">
-                <h4 data-accent="cli">CLI Errors</h4>
-                <p>Occur during key management, un-funded account deployment attempts, or sequence number mismatches (txBAD_SEQ).</p>
+                <h4 data-accent="cli">CLI Errors (Tooling Layer)</h4>
+                <p>Occur during key management, un-funded account deployment attempts, network passphrase mismatches, or sequence number conflicts (txBAD_SEQ).</p>
               </div>
               <div className="doc-card">
                 <h4 data-accent="rpc">RPC Simulation Errors</h4>
-                <p>Returned by simulateTransaction when authorization trees fail verification or footprint storage keys are missing.</p>
+                <p>Returned by simulateTransaction when authorization trees fail verification, state entries are archived, or footprint storage keys are missing.</p>
               </div>
               <div className="doc-card">
                 <h4 data-accent="sdk">SDK Conversion Errors</h4>
@@ -149,14 +185,13 @@ soroban-explain "account-not-found" --json`}</code>
             </div>
           </section>
 
-          {/* Section 3 */}
+          {/* Section 4 */}
           <section id="state-archival" className="doc-section">
             <h2 className="doc-section-title">
-              <Database color="#5B9DF0" size={20} /> 3. State Archival &amp; TTL Expiration (CAP-0046)
+              <Database color="#5B9DF0" size={20} /> 4. State Archival &amp; TTL Expiration (CAP-0046)
             </h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', marginBottom: '16px' }}>
-              Soroban persistent and instance storage entries are bounded by a Time-To-Live (TTL) ledger
-              counter. If an entry reaches zero remaining TTL ledgers, it is archived to prevent ledger bloat.
+              Soroban persistent and instance storage entries are bounded by a Time-To-Live (TTL) ledger counter. If an entry reaches zero remaining TTL ledgers, it is archived to prevent ledger bloat.
             </p>
 
             <div className="doc-note">
@@ -177,33 +212,29 @@ env.storage().persistent().extend_ttl(&storage_key, 1000, 100000);`}</code>
             </pre>
           </section>
 
-          {/* Section 4 */}
+          {/* Section 5 */}
           <section id="contribution-schema" className="doc-section">
             <h2 className="doc-section-title">
-              <Shield color="var(--color-trace-teal)" size={20} /> 4. Schema &amp; Contribution Guidelines
+              <Shield color="var(--color-trace-teal)" size={20} /> 5. Schema &amp; Testnet Verification Harness
             </h2>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '14px', marginBottom: '16px' }}>
-              All catalog entries in <code className="code-inline">soroban-error-index</code> are formatted
-              in Markdown with a YAML frontmatter header validated against{' '}
-              <code className="code-inline">schema/entry.schema.json</code>.
+              All 21 catalog entries in <code className="code-inline">soroban-error-index</code> are backed by empirical testnet execution logs in <code className="code-inline">verification/</code>, validated with JSON Schema in CI.
             </p>
 
             <pre className="code-block">
-              <code>{`---
-id: my-error-id
-title: Host Error - Short Description
-category: host-error # host-error | cli-error | rpc-error | sdk-error
-error_code: ErrorCodeString
-verified: true # true if confirmed on testnet/mainnet with reproduction
-summary: Concise 1-2 sentence description.
-tags: [tag1, tag2]
-soroban_version: "21.0.0"
----`}</code>
+              <code>{`# Run full automated testnet verification suite
+python3 tools/verify_entries.py
+
+# Validate schema integrity
+python3 tools/validate_schema.py
+
+# Check cross-reference link integrity
+python3 tools/check_links.py`}</code>
             </pre>
 
             <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', marginTop: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <ExternalLink size={13} color="var(--color-trace-teal)" />
-              See the <a href="https://github.com/TrapTrace/soroban-error-index" target="_blank" rel="noreferrer" style={{ color: 'var(--color-trace-teal)' }}>soroban-error-index</a> repo for the full contribution guide.
+              See the <a href="https://github.com/TrapTrace" target="_blank" rel="noreferrer" style={{ color: 'var(--color-trace-teal)' }}>TrapTrace Organization</a> on GitHub for full source code and contribution guidelines.
             </p>
           </section>
         </div>
