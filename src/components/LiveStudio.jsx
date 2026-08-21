@@ -36,6 +36,12 @@ import {
   fetchContractEvents,
   getLatestLedger
 } from '../utils/stellarRpc';
+import BatchInspectorTab from './BatchInspectorTab';
+import AuthCheckerTab from './AuthCheckerTab';
+import FixViewerTab from './FixViewerTab';
+import AbiInspectorTab from './AbiInspectorTab';
+import InvocationSandboxTab from './InvocationSandboxTab';
+import WebhookModal from './WebhookModal';
 
 // Demo Presets for One-Click Reviewer Testing
 const DEMO_PRESETS = {
@@ -443,6 +449,41 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
             style={{ fontSize: '13px', padding: '8px 14px' }}
           >
             <Database size={14} /> Storage &amp; TTL Auditor
+          </button>
+          <button
+            className={`btn ${activeTool === 'batch' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTool('batch')}
+            style={{ fontSize: '13px', padding: '8px 14px' }}
+          >
+            <Layers size={14} /> Batch Inspector
+          </button>
+          <button
+            className={`btn ${activeTool === 'auth' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTool('auth')}
+            style={{ fontSize: '13px', padding: '8px 14px' }}
+          >
+            <ShieldCheck size={14} /> Auth Checker
+          </button>
+          <button
+            className={`btn ${activeTool === 'fix' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTool('fix')}
+            style={{ fontSize: '13px', padding: '8px 14px' }}
+          >
+            <Zap size={14} /> Auto-Fix
+          </button>
+          <button
+            className={`btn ${activeTool === 'abi' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTool('abi')}
+            style={{ fontSize: '13px', padding: '8px 14px' }}
+          >
+            <Cpu size={14} /> WASM ABI
+          </button>
+          <button
+            className={`btn ${activeTool === 'sandbox' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTool('sandbox')}
+            style={{ fontSize: '13px', padding: '8px 14px' }}
+          >
+            <Play size={14} /> Sandbox
           </button>
         </div>
 
@@ -1299,6 +1340,21 @@ export default function LiveStudio({ catalogEntries, onSelectEntry }) {
           )}
         </div>
       )}
+
+      {/* TOOL 6: BATCH INSPECTOR */}
+      {activeTool === 'batch' && <BatchInspectorTab network={network} />}
+
+      {/* TOOL 7: AUTH CHECKER */}
+      {activeTool === 'auth' && <AuthCheckerTab network={network} />}
+
+      {/* TOOL 8: AUTO-FIX GENERATOR */}
+      {activeTool === 'fix' && <FixViewerTab />}
+
+      {/* TOOL 9: WASM ABI INSPECTOR */}
+      {activeTool === 'abi' && <AbiInspectorTab network={network} />}
+
+      {/* TOOL 10: INVOCATION SANDBOX */}
+      {activeTool === 'sandbox' && <InvocationSandboxTab network={network} />}
     </div>
   );
 }
