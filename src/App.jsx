@@ -38,6 +38,19 @@ export default function App() {
     if (meta) meta.setAttribute('content', theme === 'dark' ? '#0C0F14' : '#F7F5F0');
   }, [theme]);
 
+  // Dynamic document title reflecting the error currently inspected
+  useEffect(() => {
+    if (selectedEntry) {
+      document.title = `${selectedEntry.code ? `${selectedEntry.code}: ` : ''}${selectedEntry.title} — TrapTrace`;
+    } else if (activeTab === 'studio') {
+      document.title = 'Live Studio — TrapTrace';
+    } else if (activeTab === 'docs') {
+      document.title = 'Documentation — TrapTrace';
+    } else {
+      document.title = 'TrapTrace — Soroban Error Index Explorer';
+    }
+  }, [selectedEntry, activeTab]);
+
   // URL Query Parameters Handling on initial load
   useEffect(() => {
     try {
