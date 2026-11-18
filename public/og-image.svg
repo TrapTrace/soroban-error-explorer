@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0C0F14"/>
+      <stop offset="100%" stop-color="#141923"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="80%" cy="20%" r="60%">
+      <stop offset="0%" stop-color="#FF385C" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Border -->
+  <rect x="24" y="24" width="1152" height="582" rx="20" fill="none" stroke="#21262D" stroke-width="2"/>
+
+  <!-- Logo Icon -->
+  <g transform="translate(100, 100)">
+    <rect width="80" height="80" rx="18" fill="#161B22" stroke="#30363D" stroke-width="2"/>
+    <circle cx="40" cy="40" r="24" fill="none" stroke="#FF385C" stroke-width="3" stroke-dasharray="4 4"/>
+    <circle cx="40" cy="40" r="12" fill="#FF385C"/>
+    <line x1="40" y1="6" x2="40" y2="16" stroke="#FF385C" stroke-width="3" stroke-linecap="round"/>
+    <line x1="40" y1="64" x2="40" y2="74" stroke="#FF385C" stroke-width="3" stroke-linecap="round"/>
+    <line x1="6" y1="40" x2="16" y2="40" stroke="#FF385C" stroke-width="3" stroke-linecap="round"/>
+    <line x1="64" y1="40" x2="74" y2="40" stroke="#FF385C" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Typography -->
+  <text x="210" y="152" fill="#FFFFFF" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="800" letter-spacing="-1">TrapTrace</text>
+  <text x="440" y="152" fill="#58A6FF" font-family="monospace" font-size="24" font-weight="600">v0.2.0</text>
+
+  <text x="100" y="270" fill="#FFFFFF" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="700" letter-spacing="-1.5">
+    Soroban Error Index Explorer
+  </text>
+  <text x="100" y="340" fill="#8B949E" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400">
+    Searchable catalog of Stellar Soroban host, CLI, RPC &amp; SDK errors
+  </text>
+  <text x="100" y="385" fill="#8B949E" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400">
+    with verified remediation recipes and code examples.
+  </text>
+
+  <!-- Badges / Tags -->
+  <g transform="translate(100, 480)">
+    <rect width="180" height="44" rx="8" fill="#1F242C" stroke="#30363D"/>
+    <text x="90" y="28" fill="#58A6FF" font-family="monospace" font-size="18" text-anchor="middle">Stellar Network</text>
+
+    <g transform="translate(200, 0)">
+      <rect width="160" height="44" rx="8" fill="#1F242C" stroke="#30363D"/>
+      <text x="80" y="28" fill="#3FB950" font-family="monospace" font-size="18" text-anchor="middle">Soroban Host</text>
+    </g>
+
+    <g transform="translate(380, 0)">
+      <rect width="180" height="44" rx="8" fill="#1F242C" stroke="#30363D"/>
+      <text x="90" y="28" fill="#FF7B72" font-family="monospace" font-size="18" text-anchor="middle">Rust SDK &amp; RPC</text>
+    </g>
+  </g>
+</svg>
